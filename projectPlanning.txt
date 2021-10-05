@@ -1,0 +1,76 @@
+these classes will represent a message/handshake. read will fill the class with the data.
+write will write the data in the class to a bitstream.
+
+class Handshake:
+
+	handshakeHeader
+	peerID
+
+	readHandshake(message)
+	writeHandshake()
+
+class Message:
+	
+	messageLength
+	enum messageType { 
+		choke,
+		unchoke,
+		interested,
+		notInterested,
+		have,
+		bitfield,
+		request,
+		piece
+	}
+	message payload
+
+	readMessage(message)
+	writeMessage()
+
+	//helpers to write/read
+	read/writeChoke()
+	read/writeUnchoke()
+	read/writeInterested()
+	read/writeNotInterested()
+	read/writeHave()
+	read/writeBitfield()
+	read/writeRequest()
+	read/writePiece()
+
+	
+	
+class Peer:
+	
+	myBitfield
+	Map<peerID, peerBitfield>
+	numOfPreferredNeighbors
+	preferredNeighborInterval 
+	optimisticNeighborInterval
+	fileName
+	fileSize
+	pieceSize
+	numPieces = Math.ceil(fileSize/pieceSize)
+	myPeerID
+	listeningPort
+
+	startup()
+	readCommonFile()
+	readPeerInfoFile()
+	writeLog(log)
+	sendHandshake() //create handshake object in function
+	sendMessage(messageType, optional<messageData>)
+
+class peerProcess:
+	
+	Main(){
+	peerID = args[0]
+
+	new Peer(peerID)
+	
+	}
+
+	
+	
+
+
+	
