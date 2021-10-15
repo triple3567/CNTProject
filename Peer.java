@@ -46,8 +46,11 @@ public class Peer {
     }
 
     void startup(){
+
         readCommonFile();
         readPeerInfoFile();
+
+        writeLog("Test" + myPeerID);
 
     }
 
