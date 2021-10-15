@@ -6,6 +6,7 @@ import java.io.PrintWriter;
 import java.io.BufferedWriter;
 import java.util.*;
 import java.lang.Math;
+import java.nio.file.*;
 
 
 public class Peer {
@@ -34,6 +35,7 @@ public class Peer {
     int fileSize;
     int pieceSize;
     int numPieces;
+    byte[] fileBytes;
 
     //peer info file
     Map<Integer, PeerInfo> peerInfo = new HashMap<>(); 
@@ -49,8 +51,21 @@ public class Peer {
 
         readCommonFile();
         readPeerInfoFile();
+        
+        //if has file, load into bytearray, else initialize byte array as size
 
-        writeLog("Test" + myPeerID);
+        try{
+            if(peerInfo.get(myPeerID).hasCompleteFile){
+                fileBytes = Files.readAllBytes(Paths.get(fileName));
+            }
+            else{
+                fileBytes = new byte[fileSize];
+            }
+        }
+        catch(IOException e){
+            e.printStackTrace();
+        }
+
 
     }
 
@@ -89,8 +104,6 @@ public class Peer {
         catch (FileNotFoundException e){
             e.printStackTrace();
         }
-
-        
 
     }
     void readPeerInfoFile(){
@@ -143,4 +156,6 @@ public class Peer {
 
         
     }
+
+
 }
