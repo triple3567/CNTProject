@@ -43,8 +43,6 @@ public class Peer {
 
         startup();
 
-        writeLog("test1");
-        writeLog("test2");
     }
 
     void startup(){
