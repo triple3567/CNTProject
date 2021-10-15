@@ -53,7 +53,6 @@ public class Peer {
         readPeerInfoFile();
         
         //if has file, load into bytearray, else initialize byte array as size
-
         try{
             if(peerInfo.get(myPeerID).hasCompleteFile){
                 fileBytes = Files.readAllBytes(Paths.get(fileName));
