@@ -16,18 +16,19 @@ public class Peer {
         String hostName;
         int listeningPort;
         boolean hasCompleteFile;
+        boolean[] bitArray;
     
         PeerInfo(String h, int l, boolean b){
     
             hostName = h;
             listeningPort = l;
             hasCompleteFile = b;
+            bitArray = new boolean[numPieces];
         }
     }
 
-    int myPeerID;
-
     //common file
+    int myPeerID;
     int numOfPreferredNeighbors;
     int unchokingInterval;
     int optimisticUnchokingInterval;
@@ -55,7 +56,10 @@ public class Peer {
         //if has file, load into bytearray, else initialize byte array as size
         try{
             if(peerInfo.get(myPeerID).hasCompleteFile){
-                fileBytes = Files.readAllBytes(Paths.get(fileName));
+                
+                fileBytes = Files.readAllBytes(Paths.get("./peer_" + myPeerID + "/" + fileName));
+                peerInfo.get(myPeerID).hasCompleteFile = true;
+                Arrays.fill(peerInfo.get(myPeerID).bitArray, true);
             }
             else{
                 fileBytes = new byte[fileSize];
