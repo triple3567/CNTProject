@@ -16,18 +16,19 @@ public class Peer {
         String hostName;
         int listeningPort;
         boolean hasCompleteFile;
+        boolean[] bitArray;
     
         PeerInfo(String h, int l, boolean b){
     
             hostName = h;
             listeningPort = l;
             hasCompleteFile = b;
+            bitArray = new boolean[numPieces];
         }
     }
 
-    int myPeerID;
-
     //common file
+    int myPeerID;
     int numOfPreferredNeighbors;
     int unchokingInterval;
     int optimisticUnchokingInterval;
@@ -40,23 +41,34 @@ public class Peer {
     //peer info file
     Map<Integer, PeerInfo> peerInfo = new HashMap<>(); 
 
+    //Clients and Server
+    List<Client> clients = new ArrayList<>();
+    Server server;
+
     Peer(int peerID){
+
         myPeerID = peerID;
-
         startup();
-
     }
 
     void startup(){
 
         readCommonFile();
         readPeerInfoFile();
+        readFileIfComplete();
+        startClients();
+        startServer();
+    }
+
+    void readFileIfComplete(){
         
         //if has file, load into bytearray, else initialize byte array as size
-
         try{
             if(peerInfo.get(myPeerID).hasCompleteFile){
-                fileBytes = Files.readAllBytes(Paths.get(fileName));
+                
+                fileBytes = Files.readAllBytes(Paths.get("./peer_" + myPeerID + "/" + fileName));
+                peerInfo.get(myPeerID).hasCompleteFile = true;
+                Arrays.fill(peerInfo.get(myPeerID).bitArray, true);
             }
             else{
                 fileBytes = new byte[fileSize];
@@ -65,10 +77,33 @@ public class Peer {
         catch(IOException e){
             e.printStackTrace();
         }
-
-
     }
 
+    void startClients(){
+
+        //Create a client thread for each neighbor read from PeerInfo.cfg that is not itself.
+        for(Map.Entry<Integer, PeerInfo> entry : peerInfo.entrySet()){
+
+            int key = entry.getKey();
+            PeerInfo value = entry.getValue();
+
+            //iterate over all peers except self
+            if(key != myPeerID) {
+
+                System.out.println("Key: " + key + " myPeerID: " + myPeerID);
+                
+                clients.add(new Client(value.listeningPort, value.hostName, myPeerID));
+                clients.get(clients.size() - 1).start();
+            }
+        }
+    }
+
+    void startServer(){
+
+        //Start listening on the listening port
+        server = new Server(peerInfo.get(myPeerID).listeningPort, myPeerID);
+        server.start();
+    }
     void readCommonFile(){
 
         File commonFile = new File("Common.cfg");
@@ -134,28 +169,5 @@ public class Peer {
             e.printStackTrace();
         }
     }
-    void writeLog(String s){
-
-        String logFile = "log_peer_" + myPeerID + ".log";
-        File f = new File(logFile);
-
-        try {
-
-            f.createNewFile();
-
-            BufferedWriter outStream = new BufferedWriter(new FileWriter(logFile, true));
-
-            outStream.append(s);
-            outStream.newLine();
-            outStream.close();
-
-        }
-        catch(IOException e){
-            e.printStackTrace();
-        }
-
-        
-    }
-
 
 }

@@ -9,7 +9,6 @@
 
 import java.io.*;
 import java.util.*;
-import java.util.concurrent.TimeUnit;
 
 /*
  * The StartRemotePeers class begins remote peer processes. 
@@ -17,7 +16,7 @@ import java.util.concurrent.TimeUnit;
  * You must modify this program a little bit if your peer processes are written in C or C++.
  * Please look at the lines below the comment saying IMPORTANT.
  */
-public class StartRemotePeers {
+public class KillRemotePeers {
 
 	public Vector<RemotePeerInfo> peerInfoVector;
 	
@@ -54,7 +53,7 @@ public class StartRemotePeers {
 	public static void main(String[] args) {
 		// TODO Auto-generated method stub
 		try {
-			StartRemotePeers myStart = new StartRemotePeers();
+			KillRemotePeers myStart = new KillRemotePeers();
 			myStart.getConfiguration();
 					
 			// get current path
@@ -64,18 +63,16 @@ public class StartRemotePeers {
 			for (int i = 0; i < myStart.peerInfoVector.size(); i++) {
 				RemotePeerInfo pInfo = (RemotePeerInfo) myStart.peerInfoVector.elementAt(i);
 				
-				System.out.println("Start remote peer " + pInfo.peerId +  " at " + pInfo.peerAddress );
+				System.out.println("Kill remote peer " + pInfo.peerId +  " at " + pInfo.peerAddress );
 				
 				// *********************** IMPORTANT *************************** //
 				// If your program is JAVA, use this line.
-				Runtime.getRuntime().exec("ssh " + pInfo.username + "@" + pInfo.peerAddress + " cd " + path + "; java peerProcess " + pInfo.peerId);
+				Runtime.getRuntime().exec("ssh " + pInfo.username + "@" + pInfo.peerAddress + " cd " + path + "; pkill -f \"java peerProcess\"");
 				
 				// If your program is C/C++, use this line instead of the above line. 
 				//Runtime.getRuntime().exec("ssh " + pInfo.peerAddress + " cd " + path + "; ./peerProcess " + pInfo.peerId);
-
-				TimeUnit.SECONDS.sleep(2);
 			}		
-			System.out.println("Starting all remote peers has done." );
+			System.out.println("killing all remote peers has done." );
 
 		}
 		catch (Exception ex) {
