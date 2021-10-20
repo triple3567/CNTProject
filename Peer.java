@@ -41,6 +41,10 @@ public class Peer {
     //peer info file
     Map<Integer, PeerInfo> peerInfo = new HashMap<>(); 
 
+    //Clients and Server
+    List<Client> clients = new ArrayList<>();
+    Server server;
+
     Peer(int peerID){
         myPeerID = peerID;
 
@@ -52,6 +56,12 @@ public class Peer {
 
         readCommonFile();
         readPeerInfoFile();
+        readFileIfComplete();
+        startClients();
+        startServer();
+    }
+
+    void readFileIfComplete(){
         
         //if has file, load into bytearray, else initialize byte array as size
         try{
@@ -68,8 +78,30 @@ public class Peer {
         catch(IOException e){
             e.printStackTrace();
         }
+    }
 
+    void startClients(){
 
+        for(Map.Entry<Integer, PeerInfo> entry : peerInfo.entrySet()){
+
+            int key = entry.getKey();
+            PeerInfo value = entry.getValue();
+
+            //iterate over all peers except self
+            if(key != myPeerID) {
+
+                System.out.println("Key: " + key + " myPeerID: " + myPeerID);
+                
+                clients.add(new Client(value.listeningPort, value.hostName, myPeerID));
+                clients.get(clients.size() - 1).start();
+            }
+        }
+    }
+
+    void startServer(){
+
+        server = new Server(peerInfo.get(myPeerID).listeningPort, myPeerID);
+        server.start();
     }
 
     void readCommonFile(){
@@ -137,28 +169,5 @@ public class Peer {
             e.printStackTrace();
         }
     }
-    void writeLog(String s){
-
-        String logFile = "log_peer_" + myPeerID + ".log";
-        File f = new File(logFile);
-
-        try {
-
-            f.createNewFile();
-
-            BufferedWriter outStream = new BufferedWriter(new FileWriter(logFile, true));
-
-            outStream.append(s);
-            outStream.newLine();
-            outStream.close();
-
-        }
-        catch(IOException e){
-            e.printStackTrace();
-        }
-
-        
-    }
-
 
 }

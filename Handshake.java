@@ -1,3 +1,6 @@
+import java.nio.ByteBuffer;
+import java.util.*;
+
 public class Handshake{
 
     String handshakeHeaderString = "P2PFILESHARINGPROJ";
@@ -12,17 +15,46 @@ public class Handshake{
         peerID = p;
     }
 
-    //TODO
     byte[] writeHandshake(){
 
         byte[] handshakeMessage = new byte[32];
+        byte[] peerIDBytes = ByteBuffer.allocate(4).putInt(peerID).array();;
 
-        return void;
+        int count = 0;
+
+        for(int i = 0; i < handshakeHeader.length; i++){
+
+            handshakeMessage[count] = handshakeHeader[i];
+            count++;
+        }
+
+        for(int i = 0; i < 10; i++){
+
+            handshakeMessage[count] = 0;
+            count++;
+        }
+
+        for(int i = 0; i < peerIDBytes.length; i++){
+
+            handshakeMessage[count] = peerIDBytes[i];
+            count++;
+        }
+
+        return handshakeMessage;
     }
 
-    //TODO
     void readHandshake(byte[] b){
 
-        return void;
+        String s = new String(Arrays.copyOfRange(b, 0, 18));
+
+        if(!s.equals(handshakeHeaderString)){
+
+            System.out.println("Invalid Handshake Read");
+
+        }
+        peerID = ByteBuffer.wrap(Arrays.copyOfRange(b, 28, 32)).getInt();
+        
+
     }
+
 }

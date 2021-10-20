@@ -1,5 +1,9 @@
 javac Handshake.java
-javac RemotePeerInfo.java
-javac StartRemotePeers.java
-javac peerProcess.java
+javac Server.java
+javac Client.java
 javac Peer.java
+javac peerProcess.java
+javac RemotePeerInfo.java
+javac KillRemotePeers.java
+javac StartRemotePeers.java
+
