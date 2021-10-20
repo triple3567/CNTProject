@@ -21,6 +21,9 @@ public class Server extends Thread{
         logger = new Logger(myPeerID);
     }
 
+
+    //Creates a new thread for Server. Will loop on listening for more connections. 
+    //TODO create exit condition so server will close when all connections end
     public void run() {
 
         try{
@@ -30,6 +33,7 @@ public class Server extends Thread{
 
             try {
 
+                //Add a new listener thread to handlers array when a connection is established. 
                 while(true) {
 
                     handlers.add(new Handler(listener.accept(), numConnections));
@@ -72,16 +76,34 @@ public class Server extends Thread{
         public void run() {
 
             try{
-            
+                
                 //initialize Input and Output streams
                 out = new ObjectOutputStream(connection.getOutputStream());
                 out.flush();
                 in = new ObjectInputStream(connection.getInputStream());
-                Handshake handshake = new Handshake();
-                handshake.setPeerID(myPeerID);
 
-                //try handshaking
+                doHandshaking();
+                
+
+                
+            }
+            catch(IOException e){
+                System.out.println("Disconnect with Client " + no);
+            }
+            finally{
+
+            }
+
+        }
+
+        void doHandshaking(){
+
+            Handshake handshake = new Handshake();
+            handshake.setPeerID(myPeerID);
+
+            //try handshaking
                 try{
+
                     //send MESSAGE back to the client
                     System.out.println(Arrays.toString(handshake.writeHandshake()));
                     sendMessage(handshake.writeHandshake());
@@ -105,14 +127,6 @@ public class Server extends Thread{
                 catch(Exception e){
                     e.printStackTrace();
                 }
-            }
-            catch(IOException e){
-                System.out.println("Disconnect with Client " + no);
-            }
-            finally{
-
-            }
-
         }
 
         //send a message to the output stream

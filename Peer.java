@@ -46,10 +46,9 @@ public class Peer {
     Server server;
 
     Peer(int peerID){
+
         myPeerID = peerID;
-
         startup();
-
     }
 
     void startup(){
@@ -82,6 +81,7 @@ public class Peer {
 
     void startClients(){
 
+        //Create a client thread for each neighbor read from PeerInfo.cfg that is not itself.
         for(Map.Entry<Integer, PeerInfo> entry : peerInfo.entrySet()){
 
             int key = entry.getKey();
@@ -100,10 +100,10 @@ public class Peer {
 
     void startServer(){
 
+        //Start listening on the listening port
         server = new Server(peerInfo.get(myPeerID).listeningPort, myPeerID);
         server.start();
     }
-
     void readCommonFile(){
 
         File commonFile = new File("Common.cfg");

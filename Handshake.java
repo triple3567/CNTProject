@@ -15,6 +15,7 @@ public class Handshake{
         peerID = p;
     }
 
+    //Writes a handshake with the current peerID, Returns the byte array representation of the handshake
     byte[] writeHandshake(){
 
         byte[] handshakeMessage = new byte[32];
@@ -43,6 +44,7 @@ public class Handshake{
         return handshakeMessage;
     }
 
+    //reads a handshake and stores the peer ID in the local variable peerID. 
     void readHandshake(byte[] b){
 
         String s = new String(Arrays.copyOfRange(b, 0, 18));

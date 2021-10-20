@@ -37,27 +37,7 @@ public class Client extends Thread{
             out.flush();
             in = new ObjectInputStream(requestSocket.getInputStream());
 
-            //Do Handshaking
-            //Receive the upperCase sentence from the server
-            Handshake handshake = new Handshake();
-            buffer = new byte[32];
-            in.readFully(buffer, 0, 32);
-
-            System.out.println(Arrays.toString(buffer));
-
-            handshake.readHandshake(buffer);
-            
-            peerID = handshake.getPeerID();
-
-            //show the message to the user
-            System.out.println("Receive handshake: " + peerID);
-            
-            //Send the sentence to the server
-            handshake = new Handshake();
-            handshake.setPeerID(myPeerID);
-            sendMessage(handshake.writeHandshake());
-
-            logger.writeLog("Peer [" + myPeerID + "] makes a connection to Peer [" + peerID + "]");
+            doHandshaking();
 
 
         }
@@ -97,6 +77,39 @@ public class Client extends Thread{
             }
         }
     }
+
+    void doHandshaking(){
+        try{
+
+            //Do Handshaking
+            //Receive the upperCase sentence from the server
+            Handshake handshake = new Handshake();
+            buffer = new byte[32];
+            in.readFully(buffer, 0, 32);
+
+            System.out.println(Arrays.toString(buffer));
+
+            handshake.readHandshake(buffer);
+            
+            peerID = handshake.getPeerID();
+
+            //show the message to the user
+            System.out.println("Receive handshake: " + peerID);
+            
+            //Send the sentence to the server
+            handshake = new Handshake();
+            handshake.setPeerID(myPeerID);
+            sendMessage(handshake.writeHandshake());
+
+            logger.writeLog("Peer [" + myPeerID + "] makes a connection to Peer [" + peerID + "]");
+
+        }
+        catch(IOException ioException){
+            ioException.printStackTrace();
+        }
+
+    }
+
     //send a message to the output stream
     void sendMessage(byte[] message){
         try{
