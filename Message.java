@@ -51,7 +51,7 @@ public class Message {
         messageLenght = String.valueOf(m);
         System.out.println(messageLenght);
         messageLenghtBits = messageLenght.getBytes();
-        bbuf.put(messageLenghtBits);
+        bBufMessage.put(messageLenghtBits);
     }
     void getMessagePayload(){
         switch(msgType){
