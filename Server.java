@@ -84,8 +84,6 @@ public class Server extends Thread{
 
                 doHandshaking();
                 
-
-                
             }
             catch(IOException e){
                 System.out.println("Disconnect with Client " + no);
