@@ -1,8 +1,9 @@
 import java.lang.Object;
 import java.nio.ByteBuffer;
+import java.lang.Math;
 //import java.nio.charset.Charset;
 public class Message {
-    byte[] messageLenghtBits;
+    byte[] messageLengthBits;
     ByteBuffer bBufPayload;
     int messageTypeNumber;
     byte[] payloadBits;
@@ -50,7 +51,7 @@ public class Message {
                 bBufPayload = ByteBuffer.allocate(4);
                 break;
             case bitfield:
-                //TODO depends on peer
+                bBufPayload = ByteBuffer.allocate(payloadBits.length);
                 break;
             case request:
                 bBufPayload = ByteBuffer.allocate(4);
@@ -122,12 +123,12 @@ public class Message {
     byte[] writeChoke(){
         byte[] message = new byte[5];
         byte[] messageTypeBit =  ByteBuffer.allocate(1).putInt(messageTypeNumber).array();
-        messageLenghtBits = ByteBuffer.allocate(4).putInt(message.length).array();
+        messageLengthBits = ByteBuffer.allocate(4).putInt(message.length).array();
 
         int count = 0;
 
-        for(int i = 0; i < messageLenghtBits.length; i++){
-            message[count] = messageLenghtBits[i];
+        for(int i = 0; i < messageLengthBits.length; i++){
+            message[count] = messageLengthBits[i];
             count++;
         }
         for(int i = 0; i < messageTypeBit.length; i++){
@@ -141,12 +142,12 @@ public class Message {
     byte[] writeUnchoke(){
         byte[] message = new byte[5];
         byte[] messageTypeBit =  ByteBuffer.allocate(1).putInt(messageTypeNumber).array();
-        messageLenghtBits = ByteBuffer.allocate(4).putInt(message.length).array();
+        messageLengthBits = ByteBuffer.allocate(4).putInt(message.length).array();
 
         int count = 0;
 
-        for(int i = 0; i < messageLenghtBits.length; i++){
-            message[count] = messageLenghtBits[i];
+        for(int i = 0; i < messageLengthBits.length; i++){
+            message[count] = messageLengthBits[i];
             count++;
         }
         for(int i = 0; i < messageTypeBit.length; i++){
@@ -159,12 +160,12 @@ public class Message {
     byte[] writeInterested(){
         byte[] message = new byte[5];
         byte[] messageTypeBit =  ByteBuffer.allocate(1).putInt(messageTypeNumber).array();
-        messageLenghtBits = ByteBuffer.allocate(4).putInt(message.length).array();
+        messageLengthBits = ByteBuffer.allocate(4).putInt(message.length).array();
 
         int count = 0;
 
-        for(int i = 0; i < messageLenghtBits.length; i++){
-            message[count] = messageLenghtBits[i];
+        for(int i = 0; i < messageLengthBits.length; i++){
+            message[count] = messageLengthBits[i];
             count++;
         }
         for(int i = 0; i < messageTypeBit.length; i++){
@@ -177,12 +178,12 @@ public class Message {
     byte[] writeNotInterested(){
         byte[] message = new byte[5];
         byte[] messageTypeBit =  ByteBuffer.allocate(1).putInt(messageTypeNumber).array();
-        messageLenghtBits = ByteBuffer.allocate(4).putInt(message.length).array();
+        messageLengthBits = ByteBuffer.allocate(4).putInt(message.length).array();
 
         int count = 0;
 
-        for(int i = 0; i < messageLenghtBits.length; i++){
-            message[count] = messageLenghtBits[i];
+        for(int i = 0; i < messageLengthBits.length; i++){
+            message[count] = messageLengthBits[i];
             count++;
         }
         for(int i = 0; i < messageTypeBit.length; i++){
@@ -195,13 +196,13 @@ public class Message {
     byte[] writeHave(){
         byte[] message = new byte[9];
         byte[] messageTypeBit =  ByteBuffer.allocate(1).putInt(messageTypeNumber).array();
-        messageLenghtBits = ByteBuffer.allocate(4).putInt(message.length).array();
+        messageLengthBits = ByteBuffer.allocate(4).putInt(message.length).array();
         byte[] payloadBytes = bBufPayload.wrap(payloadBits).array()
 
         int count = 0;
 
-        for(int i = 0; i < messageLenghtBits.length; i++){
-            message[count] = messageLenghtBits[i];
+        for(int i = 0; i < messageLengthBits.length; i++){
+            message[count] = messageLengthBits[i];
             count++;
         }
         for(int i = 0; i < messageTypeBit.length; i++){
@@ -216,19 +217,38 @@ public class Message {
     }
 
     byte[] writeBitfield(){
-        return null;
+
+        byte[] message = new byte[payloadBits.length+5];
+        byte[] messageTypeBit =  ByteBuffer.allocate(1).putInt(messageTypeNumber).array();
+        messageLengthBits = ByteBuffer.allocate(4).putInt(message.length).array();
+        byte[] payloadBytes = bBufPayload.wrap(payloadBits).array()
+        int count = 0;
+
+        for(int i = 0; i < messageLengthBits.length; i++){
+            message[count] = messageLengthBits[i];
+            count++;
+        }
+        for(int i = 0; i < messageTypeBit.length; i++){
+            message[count] = messageTypeBit[i];
+            count++;
+        }
+        for(int i = 0; i < payloadBytes.length; i++){
+            message[count] = payloadBytes[i];
+            count++;
+        }
+        return message;
     }
 
     byte[] writeRequest(){
         byte[] message = new byte[9];
         byte[] messageTypeBit =  ByteBuffer.allocate(1).putInt(messageTypeNumber).array();
-        messageLenghtBits = ByteBuffer.allocate(4).putInt(message.length).array();
+        messageLengthBits = ByteBuffer.allocate(4).putInt(message.length).array();
         byte[] payloadBytes = bBufPayload.wrap(payloadBits).array()
 
         int count = 0;
 
-        for(int i = 0; i < messageLenghtBits.length; i++){
-            message[count] = messageLenghtBits[i];
+        for(int i = 0; i < messageLengthBits.length; i++){
+            message[count] = messageLengthBits[i];
             count++;
         }
         for(int i = 0; i < messageTypeBit.length; i++){
@@ -245,13 +265,13 @@ public class Message {
     byte[] writePiece(){
         byte[] message = new byte[9];
         byte[] messageTypeBit =  ByteBuffer.allocate(1).putInt(messageTypeNumber).array();
-        messageLenghtBits = ByteBuffer.allocate(4).putInt(message.length).array();
+        messageLengthBits = ByteBuffer.allocate(4).putInt(message.length).array();
         byte[] payloadBytes = bBufPayload.wrap(payloadBits).array()
 
         int count = 0;
 
-        for(int i = 0; i < messageLenghtBits.length; i++){
-            message[count] = messageLenghtBits[i];
+        for(int i = 0; i < messageLengthBits.length; i++){
+            message[count] = messageLengthBits[i];
             count++;
         }
         for(int i = 0; i < messageTypeBit.length; i++){
@@ -263,5 +283,17 @@ public class Message {
             count++;
         }
         return message;
+    }
+
+    void readMessage(byte[] b){
+        messageLengthBits = Arrays.copyOfRange(b,0,4);
+        int messageLength = ByteBuffer.wrap(Arrays.copyOfRange(b,0,4)).getInt();
+        messageTypeBit = Arrays.copyOfRange(b,5,6);
+        messageTypeNumber = ByteBuffer.wrap(Arrays.copyOfRange(b,5,6)).getInt();
+        calculateMessageType(messageTypeNumber);
+        if (messageLength > 1){
+            payloadBytes = Arrays.copyOfRange(b,6,b.length);
+        }
+
     }
 }
