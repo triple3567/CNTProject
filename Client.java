@@ -16,64 +16,69 @@ public class Client extends Thread{
     byte[] buffer;
     int peerID;     //id of server
     Logger logger;
+    Map<Integer, Peer.PeerInfo> peerInfo;
     
-    Client(int p, String h, int myPeerID) {
+    Client(int p, String h, int myPeerID, Map<Integer, Peer.PeerInfo> peerInfo) {
 
         port = p;
         host = h;
         this.myPeerID = myPeerID;
+        this.peerInfo = peerInfo;
         logger = new Logger(myPeerID);
     }
     
     public void run(){
 
-        try{
-            //create a socket to connect to the server
-            requestSocket = new Socket(host, port);
-            System.out.println("Connected to " + host + " in port " + port);
+        while (true){
 
-            //initialize inputStream and outputStream
-            out = new ObjectOutputStream(requestSocket.getOutputStream());
-            out.flush();
-            in = new ObjectInputStream(requestSocket.getInputStream());
-
-            doHandshaking();
-
-
-        }
-        catch (ConnectException e) {
-            System.err.println("Connection refused for host: " + host + ". You need to initiate a server first.");
-        } 
-        catch(UnknownHostException unknownHost){
-            System.err.println("You are trying to connect to an unknown host!");
-        }
-        catch(IOException ioException){
-            ioException.printStackTrace();
-        }
-        finally{
-            //Close connections
             try{
+                //create a socket to connect to the server
+                requestSocket = new Socket(host, port);
+                System.out.println("Connected to " + host + " in port " + port);
 
-                if(in != null){
+                //initialize inputStream and outputStream
+                out = new ObjectOutputStream(requestSocket.getOutputStream());
+                out.flush();
+                in = new ObjectInputStream(requestSocket.getInputStream());
+
+                doHandshaking();
+
+                //send bitfield message
+                sendBitfieldMessage();
+
+
+            }
+            catch (Exception e){
+                logger.writeLog("Peer [" + myPeerID +"] has failed to connect to Peer [" + peerID + "]. retrying...");
+                continue;
+            }
+            finally{
+                //Close connections
+                try{
+
+                    if(in != null){
+                        
+                        in.close();
+                    }
                     
-                    in.close();
+                    if(out != null){
+                        
+                        out.close();
+                    }
+
+                    if(requestSocket != null){
+                        
+                        requestSocket.close();
+                    }
                 }
-                
-                if(out != null){
-                    
-                    out.close();
+                catch(IOException ioException){
+                    ioException.printStackTrace();
+                }
+                catch(Exception e){
+                    e.printStackTrace();
                 }
 
-                if(requestSocket != null){
-                    
-                    requestSocket.close();
-                }
-            }
-            catch(IOException ioException){
-                ioException.printStackTrace();
-            }
-            catch(Exception e){
-                e.printStackTrace();
+                break;
             }
         }
     }
@@ -108,6 +113,33 @@ public class Client extends Thread{
             ioException.printStackTrace();
         }
 
+    }
+
+    void sendBitfieldMessage(){
+
+        try{
+
+
+            Message message = new Message(5);
+            message.setBitfield(peerInfo.get(myPeerID).bitset);
+            byte[] messageOut = message.writeBitfield();
+            sendMessage(messageOut);
+
+            logger.writeLog("[INFO] Peer [" + myPeerID + "] sent a bitfield message to Peer [" + peerID + "]");
+           
+
+        }
+        catch(Exception e){
+            
+            
+            e.printStackTrace();
+
+            StringWriter sw = new StringWriter();
+            PrintWriter pw = new PrintWriter(sw);
+            e.printStackTrace(pw);
+            String sStackTrace = sw.toString(); // stack trace as a string
+            logger.writeLog("[ERROR] Peer [" + myPeerID + "]" + sStackTrace);
+        }
     }
 
     //send a message to the output stream

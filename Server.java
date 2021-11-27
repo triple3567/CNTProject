@@ -12,13 +12,16 @@ public class Server extends Thread{
     public List<Handler> handlers;
     public String host;
     public Logger logger;
+    Map<Integer, Peer.PeerInfo> peerInfo;
 
-    Server(int sPort, int myPeerID){
+    Server(int sPort, int myPeerID, Map<Integer, Peer.PeerInfo> peerInfo){
 
         this.sPort = sPort;
         this.myPeerID = myPeerID;
         this.handlers = new ArrayList<>();
         logger = new Logger(myPeerID);
+        this.peerInfo = peerInfo;
+
     }
 
 
@@ -71,6 +74,7 @@ public class Server extends Thread{
         public Handler(Socket connection, int no) {
             this.connection = connection;
             this.no = no;
+            this.buffer = new byte[100];
         }     
 
         public void run() {
@@ -83,6 +87,8 @@ public class Server extends Thread{
                 in = new ObjectInputStream(connection.getInputStream());
 
                 doHandshaking();
+
+                readLoop();
                 
             }
             catch(IOException e){
@@ -92,6 +98,143 @@ public class Server extends Thread{
 
             }
 
+        }
+
+        void readLoop(){
+
+            try{
+
+                while(true){
+
+                    if (in.available() < 4){
+                        
+                        //TODO, Check for completion
+
+                        continue;
+                    }
+
+                    //read 4 bytes for message length
+                    int messageLength = in.readInt();
+
+                    logger.writeLog("[INFO] Peer [" + myPeerID + "] is reading a message" );
+
+                    //read 1 byte for type
+                    int messageType = in.readUnsignedByte();
+
+                    //if message length > 0, read message payload
+
+                    byte[] messagePayload = null;
+
+                    if(messageLength > 0){
+
+                        messagePayload = new byte[messageLength];
+                        in.read(messagePayload, 0, messageLength);
+                    }
+
+                    //create message given type and payload
+
+                    Message message = new Message(messageType, messagePayload);
+                    message.readMessage();
+
+                    logger.writeLog("[INFO] Peer [" + myPeerID + "] has read message of type" + message.msgType + " from Peer[" + id + "]");
+
+                    //update Peer based on message
+
+                    switch (message.msgType){
+            
+                        case choke:
+                            break;
+                        case unchoke:
+                            break;
+                        case interested:
+                            break;
+                        case notInterested:
+                            break;
+                        case have:
+                            break;
+                        case bitfield:
+                            
+                            BitSet bitfieldPayload = message.bitfieldPayload;
+                            peerInfo.get(id).bitset = bitfieldPayload;
+                            logger.writeLog("Peer [" + myPeerID + "] received the 'bitfield' message from [" + id + "]");
+
+                            logger.writeLog("[INFO] Peer [" + myPeerID + "] set the bitfield of Peer [" + id + "] to " + peerInfo.get(id).bitset.toString());                            
+                            break;
+                        case request:
+                            break;
+                        case piece:
+                            break;
+                    }
+
+                    //send back response
+
+
+                    
+                    /** 
+                        logger.writeLog("[INFO] Peer [" + myPeerID + "] is in read loop" );
+
+
+                        in.readFully(buffer);   //thread waits here
+
+                        logger.writeLog("[INFO] Peer [" + myPeerID + "] fully read a buffer" );
+
+                        Message message = new Message();
+                        message.readMessage(buffer);
+
+                        logger.writeLog("[INFO] Peer [" + myPeerID + "] read the message" );
+
+
+                        Arrays.fill(buffer, (byte)0);
+
+                        parseMessage(message);
+
+                        //TODO logging
+
+                    */
+                        
+
+
+
+                    }
+            }
+            catch(Exception e){
+                    e.printStackTrace();
+                }
+        }
+
+        void parseMessage(Message message){
+
+            logger.writeLog("[INFO] [" + myPeerID + "] is parsing a message" );
+
+            switch (message.msgType){
+            
+                case choke:
+                    break;
+                case unchoke:
+                    break;
+                case interested:
+                    break;
+                case notInterested:
+                    break;
+                case have:
+                    break;
+                case bitfield:
+                    
+                    BitSet bitfieldPayload = message.bitfieldPayload;
+                    peerInfo.get(id).bitset = bitfieldPayload;
+                    logger.writeLog("Peer [" + myPeerID + "] received the 'bitfield' message from [" + id + "]");
+
+                    logger.writeLog("[INFO] Peer [" + myPeerID + "] set the bitfield of Peer [" + id + "] to " + peerInfo.get(id).bitset.toString());
+                    break;
+
+                case request:
+                    break;
+                case piece:
+                    break;
+                default:
+                    logger.writeLog("[ERORR WITH PARSE MESSAGE]");
+        }
+            
         }
 
         void doHandshaking(){
@@ -107,7 +250,6 @@ public class Server extends Thread{
                     sendMessage(handshake.writeHandshake());
 
                     //receive the message sent from the client
-                    buffer = new byte[32];
                     in.readFully(buffer, 0, 32);
                     
                     System.out.println(Arrays.toString(buffer));
@@ -116,11 +258,14 @@ public class Server extends Thread{
                     handshake.readHandshake(buffer);
                     id = handshake.getPeerID();
 
+                    //clear buffer
+                    Arrays.fill(buffer, (byte)0);
 
                     //show the message to the user
                     System.out.println("Receive handshake: " + handshake.getPeerID() + " from client " + no);
 
                     logger.writeLog("Peer [" + myPeerID + "] is connected from Peer [" + id + "]");
+                    
                 }
                 catch(Exception e){
                     e.printStackTrace();

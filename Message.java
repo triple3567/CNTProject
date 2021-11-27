@@ -1,12 +1,9 @@
 import java.lang.Object;
 import java.nio.ByteBuffer;
 import java.lang.Math;
+import java.util.*;
 //import java.nio.charset.Charset;
 public class Message {
-    byte[] messageLengthBits;
-    ByteBuffer bBufPayload;
-    int messageTypeNumber;
-    byte[] payloadBits;
 
     //private static Charset charset = Charset.forName("US-ASCII");
     public enum MessageType { 
@@ -19,19 +16,32 @@ public class Message {
 		request,
 		piece
 	}
+
+    byte[] messageLengthBits;
+    ByteBuffer bBufPayload;
+    int messageTypeNumber;
+    byte[] payloadBits;
     MessageType msgType;
+    BitSet bitfieldPayload = null;
     
+    Message(){
+
+    }
+
     Message(int mType){
+
         messageTypeNumber = mType;
-        calculateMessageType(mType)
+        calculateMessageType(mType);
         calculateMessagePayload();
     }
     Message(int mType, byte[] p){
+
         payloadBits = p;
         messageTypeNumber = mType;
-        calculateMessageType(mType)
+        calculateMessageType(mType);
         calculateMessagePayload();
     }
+
 
     void calculateMessagePayload(){
         switch(msgType){
@@ -51,7 +61,6 @@ public class Message {
                 bBufPayload = ByteBuffer.allocate(4);
                 break;
             case bitfield:
-                bBufPayload = ByteBuffer.allocate(payloadBits.length);
                 break;
             case request:
                 bBufPayload = ByteBuffer.allocate(4);
@@ -95,28 +104,22 @@ public class Message {
         switch (msgType) {
             case choke:
                 return writeChoke();
-                break;
             case unchoke:
                 return writeUnchoke();
-                break;
             case interested:
                 return writeInterested();
-                break;
             case notInterested:
                 return writeNotInterested();
-                break;
             case have:
                 return writeHave();
-                break;
             case bitfield:
                 return writeBitfield();
-                break;
             case request:
-                return writeRequest()
-                break;
+                return writeRequest();
             case piece:
                 return writePiece();
-                break;
+            default:
+                return null;
         }
     }
 
@@ -197,7 +200,7 @@ public class Message {
         byte[] message = new byte[9];
         byte[] messageTypeBit =  ByteBuffer.allocate(1).putInt(messageTypeNumber).array();
         messageLengthBits = ByteBuffer.allocate(4).putInt(message.length).array();
-        byte[] payloadBytes = bBufPayload.wrap(payloadBits).array()
+        byte[] payloadBytes = bBufPayload.wrap(payloadBits).array();
 
         int count = 0;
 
@@ -219,19 +222,24 @@ public class Message {
     byte[] writeBitfield(){
 
         byte[] message = new byte[payloadBits.length+5];
-        byte[] messageTypeBit =  ByteBuffer.allocate(1).putInt(messageTypeNumber).array();
+
+        ByteBuffer bb = ByteBuffer.allocate(4); 
+        bb.putInt(messageTypeNumber); 
+
+        byte messageTypeBit = bb.array()[3];
         messageLengthBits = ByteBuffer.allocate(4).putInt(message.length).array();
-        byte[] payloadBytes = bBufPayload.wrap(payloadBits).array()
+
+        byte[] payloadBytes = bBufPayload.wrap(payloadBits).array();
         int count = 0;
 
         for(int i = 0; i < messageLengthBits.length; i++){
             message[count] = messageLengthBits[i];
             count++;
         }
-        for(int i = 0; i < messageTypeBit.length; i++){
-            message[count] = messageTypeBit[i];
-            count++;
-        }
+        
+        message[count] = messageTypeBit;
+        count++;
+        
         for(int i = 0; i < payloadBytes.length; i++){
             message[count] = payloadBytes[i];
             count++;
@@ -239,11 +247,17 @@ public class Message {
         return message;
     }
 
+    void setBitfield(BitSet b){
+
+        this.payloadBits = b.toByteArray();      
+        this.bBufPayload = ByteBuffer.allocate(this.payloadBits.length);  
+    }
+
     byte[] writeRequest(){
         byte[] message = new byte[9];
         byte[] messageTypeBit =  ByteBuffer.allocate(1).putInt(messageTypeNumber).array();
         messageLengthBits = ByteBuffer.allocate(4).putInt(message.length).array();
-        byte[] payloadBytes = bBufPayload.wrap(payloadBits).array()
+        byte[] payloadBytes = bBufPayload.wrap(payloadBits).array();
 
         int count = 0;
 
@@ -266,7 +280,7 @@ public class Message {
         byte[] message = new byte[9];
         byte[] messageTypeBit =  ByteBuffer.allocate(1).putInt(messageTypeNumber).array();
         messageLengthBits = ByteBuffer.allocate(4).putInt(message.length).array();
-        byte[] payloadBytes = bBufPayload.wrap(payloadBits).array()
+        byte[] payloadBytes = bBufPayload.wrap(payloadBits).array();
 
         int count = 0;
 
@@ -285,15 +299,70 @@ public class Message {
         return message;
     }
 
+    void readMessage(){
+        switch (msgType){
+            
+            case choke:
+                break;
+            case unchoke:
+                break;
+            case interested:
+                break;
+            case notInterested:
+                break;
+            case have:
+                break;
+            case bitfield:
+                readBitfield();
+            case request:
+                break;
+            case piece:
+                break;
+        }
+
+        return;
+    }
+
     void readMessage(byte[] b){
+        
         messageLengthBits = Arrays.copyOfRange(b,0,4);
         int messageLength = ByteBuffer.wrap(Arrays.copyOfRange(b,0,4)).getInt();
-        messageTypeBit = Arrays.copyOfRange(b,5,6);
+
         messageTypeNumber = ByteBuffer.wrap(Arrays.copyOfRange(b,5,6)).getInt();
         calculateMessageType(messageTypeNumber);
         if (messageLength > 1){
-            payloadBytes = Arrays.copyOfRange(b,6,b.length);
+            payloadBits = Arrays.copyOfRange(b,6,b.length);
         }
 
+        switch (msgType){
+            
+            case choke:
+                break;
+            case unchoke:
+                break;
+            case interested:
+                break;
+            case notInterested:
+                break;
+            case have:
+                break;
+            case bitfield:
+                readBitfield();
+            case request:
+                break;
+            case piece:
+                break;
+        }
+
+        return;
     }
+
+    void readBitfield(){
+
+
+        bitfieldPayload = BitSet.valueOf(payloadBits);
+    }
+
+    
+
 }
