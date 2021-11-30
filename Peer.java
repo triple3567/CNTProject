@@ -19,13 +19,13 @@ public class Peer {
         boolean[] bitArray;
         BitSet bitset;
     
-        PeerInfo(String h, int l, boolean b){
+        PeerInfo(String h, int l, boolean b, int numP){
     
             hostName = h;
             listeningPort = l;
             hasCompleteFile = b;
-            bitArray = new boolean[numPieces];
-            bitset = new BitSet(numPieces);
+            bitArray = new boolean[numP];
+            bitset = new BitSet(numP);
         }
     }
 
@@ -39,6 +39,7 @@ public class Peer {
     int pieceSize;
     int numPieces;
     byte[] fileBytes;
+    Logger logger;
 
     //peer info file
     Map<Integer, PeerInfo> peerInfo = new HashMap<>(); 
@@ -50,6 +51,7 @@ public class Peer {
     Peer(int peerID){
 
         myPeerID = peerID;
+        logger = new Logger(myPeerID);
         startup();
     }
 
@@ -69,12 +71,17 @@ public class Peer {
             if(peerInfo.get(myPeerID).hasCompleteFile){
                 
                 fileBytes = Files.readAllBytes(Paths.get("./peer_" + myPeerID + "/" + fileName));
+                peerInfo.get(myPeerID).bitset = new BitSet(numPieces);
                 peerInfo.get(myPeerID).hasCompleteFile = true;
-                peerInfo.get(myPeerID).bitset.set(0, peerInfo.get(myPeerID).bitset.length(), true);
+                peerInfo.get(myPeerID).bitset.set(0, numPieces, true);
+
             }
             else{
                 fileBytes = new byte[fileSize];
-                peerInfo.get(myPeerID).bitset.set(0, peerInfo.get(myPeerID).bitset.length(), false);
+                peerInfo.get(myPeerID).bitset = new BitSet(numPieces);
+                peerInfo.get(myPeerID).hasCompleteFile = false;
+                peerInfo.get(myPeerID).bitset.set(0, numPieces, false);
+
             }
         }
         catch(IOException e){
@@ -95,7 +102,7 @@ public class Peer {
 
                 System.out.println("Key: " + key + " myPeerID: " + myPeerID);
                 
-                clients.add(new Client(value.listeningPort, value.hostName, myPeerID, peerInfo));
+                clients.add(new Client(value.listeningPort, value.hostName, myPeerID, peerInfo, key));
                 clients.get(clients.size() - 1).start();
             }
         }
@@ -107,6 +114,7 @@ public class Peer {
         server = new Server(peerInfo.get(myPeerID).listeningPort, myPeerID, peerInfo);
         server.start();
     }
+    
     void readCommonFile(){
 
         File commonFile = new File("Common.cfg");
@@ -144,6 +152,7 @@ public class Peer {
         }
 
     }
+
     void readPeerInfoFile(){
 
         File peerInfoFile = new File("PeerInfo.cfg");
@@ -160,7 +169,7 @@ public class Peer {
                 boolean hasCompleteFile = reader.nextInt() == 1;
                 reader.nextLine();
 
-                PeerInfo p = new PeerInfo(hostname, listeningPort, hasCompleteFile);
+                PeerInfo p = new PeerInfo(hostname, listeningPort, hasCompleteFile, numPieces);
 
                 peerInfo.put(peerId, p);
             }

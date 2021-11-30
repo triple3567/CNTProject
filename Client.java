@@ -3,6 +3,7 @@ import java.io.*;
 import java.nio.*;
 import java.nio.channels.*;
 import java.util.*;
+import java.util.concurrent.TimeUnit;
 
 public class Client extends Thread{
     Socket requestSocket;           //socket connect to the server
@@ -18,67 +19,83 @@ public class Client extends Thread{
     Logger logger;
     Map<Integer, Peer.PeerInfo> peerInfo;
     
-    Client(int p, String h, int myPeerID, Map<Integer, Peer.PeerInfo> peerInfo) {
+    Client(int p, String h, int myPeerID, Map<Integer, Peer.PeerInfo> peerInfo, int peerID) {
 
         port = p;
         host = h;
         this.myPeerID = myPeerID;
+        this.peerID = peerID;
         this.peerInfo = peerInfo;
         logger = new Logger(myPeerID);
     }
     
     public void run(){
 
-        while (true){
+        connectToServer();
 
+        try{
+
+            //initialize inputStream and outputStream
+            out = new ObjectOutputStream(requestSocket.getOutputStream());
+            out.flush();
+            in = new ObjectInputStream(requestSocket.getInputStream());
+
+            doHandshaking();
+
+            //send bitfield message
+            sendBitfieldMessage();
+
+
+        }
+        catch (Exception e){
+
+            StringWriter sw = new StringWriter();
+            PrintWriter pw = new PrintWriter(sw);
+            e.printStackTrace(pw);
+            String sStackTrace = sw.toString(); // stack trace as a string
+            logger.writeLog("[ERROR] Peer [" + myPeerID + "]" + sStackTrace);
+        }
+        finally{
+            //Close connections
             try{
-                //create a socket to connect to the server
-                requestSocket = new Socket(host, port);
-                System.out.println("Connected to " + host + " in port " + port);
 
-                //initialize inputStream and outputStream
-                out = new ObjectOutputStream(requestSocket.getOutputStream());
-                out.flush();
-                in = new ObjectInputStream(requestSocket.getInputStream());
-
-                doHandshaking();
-
-                //send bitfield message
-                sendBitfieldMessage();
-
-
-            }
-            catch (Exception e){
-                logger.writeLog("Peer [" + myPeerID +"] has failed to connect to Peer [" + peerID + "]. retrying...");
-                continue;
-            }
-            finally{
-                //Close connections
-                try{
-
-                    if(in != null){
-                        
-                        in.close();
-                    }
+                if(in != null){
                     
-                    if(out != null){
-                        
-                        out.close();
-                    }
-
-                    if(requestSocket != null){
-                        
-                        requestSocket.close();
-                    }
+                    in.close();
                 }
-                catch(IOException ioException){
-                    ioException.printStackTrace();
-                }
-                catch(Exception e){
-                    e.printStackTrace();
+                
+                if(out != null){
+                    
+                    out.close();
                 }
 
+                if(requestSocket != null){
+                    
+                    requestSocket.close();
+                }
+            }
+            catch(IOException ioException){
+                ioException.printStackTrace();
+            }
+            catch(Exception e){
+                e.printStackTrace();
+            }
+
+        }
+    }
+
+    void connectToServer(){
+
+        //create a socket to connects to the server, restarts if fails
+        while (true){
+            try{
+                TimeUnit.SECONDS.sleep(5);
+                
+                requestSocket = new Socket(host, port);
                 break;
+            }
+            catch(Exception e){
+                logger.writeLog("Peer [" + myPeerID +"] has failed to connect to Peer [" + peerID + "]. retrying in 5 seconds...");
             }
         }
     }
@@ -124,9 +141,7 @@ public class Client extends Thread{
             message.setBitfield(peerInfo.get(myPeerID).bitset);
             byte[] messageOut = message.writeBitfield();
             sendMessage(messageOut);
-
-            logger.writeLog("[INFO] Peer [" + myPeerID + "] sent a bitfield message to Peer [" + peerID + "]");
-           
+        
 
         }
         catch(Exception e){

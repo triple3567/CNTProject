@@ -116,8 +116,6 @@ public class Server extends Thread{
                     //read 4 bytes for message length
                     int messageLength = in.readInt();
 
-                    logger.writeLog("[INFO] Peer [" + myPeerID + "] is reading a message" );
-
                     //read 1 byte for type
                     int messageType = in.readUnsignedByte();
 
@@ -139,63 +137,15 @@ public class Server extends Thread{
                     logger.writeLog("[INFO] Peer [" + myPeerID + "] has read message of type" + message.msgType + " from Peer[" + id + "]");
 
                     //update Peer based on message
+                    parseMessage(message);
 
-                    switch (message.msgType){
-            
-                        case choke:
-                            break;
-                        case unchoke:
-                            break;
-                        case interested:
-                            break;
-                        case notInterested:
-                            break;
-                        case have:
-                            break;
-                        case bitfield:
-                            
-                            BitSet bitfieldPayload = message.bitfieldPayload;
-                            peerInfo.get(id).bitset = bitfieldPayload;
-                            logger.writeLog("Peer [" + myPeerID + "] received the 'bitfield' message from [" + id + "]");
-
-                            logger.writeLog("[INFO] Peer [" + myPeerID + "] set the bitfield of Peer [" + id + "] to " + peerInfo.get(id).bitset.toString());                            
-                            break;
-                        case request:
-                            break;
-                        case piece:
-                            break;
-                    }
 
                     //send back response
-
-
-                    
-                    /** 
-                        logger.writeLog("[INFO] Peer [" + myPeerID + "] is in read loop" );
-
-
-                        in.readFully(buffer);   //thread waits here
-
-                        logger.writeLog("[INFO] Peer [" + myPeerID + "] fully read a buffer" );
-
-                        Message message = new Message();
-                        message.readMessage(buffer);
-
-                        logger.writeLog("[INFO] Peer [" + myPeerID + "] read the message" );
-
-
-                        Arrays.fill(buffer, (byte)0);
-
-                        parseMessage(message);
-
-                        //TODO logging
-
-                    */
                         
 
 
 
-                    }
+                }
             }
             catch(Exception e){
                     e.printStackTrace();
@@ -203,8 +153,6 @@ public class Server extends Thread{
         }
 
         void parseMessage(Message message){
-
-            logger.writeLog("[INFO] [" + myPeerID + "] is parsing a message" );
 
             switch (message.msgType){
             
@@ -220,20 +168,15 @@ public class Server extends Thread{
                     break;
                 case bitfield:
                     
-                    BitSet bitfieldPayload = message.bitfieldPayload;
-                    peerInfo.get(id).bitset = bitfieldPayload;
-                    logger.writeLog("Peer [" + myPeerID + "] received the 'bitfield' message from [" + id + "]");
+                    peerInfo.get(id).bitset.or(message.bitfieldPayload);
 
-                    logger.writeLog("[INFO] Peer [" + myPeerID + "] set the bitfield of Peer [" + id + "] to " + peerInfo.get(id).bitset.toString());
+                    logger.writeLog("[INFO] Peer [" + myPeerID + "] recieved the bitfield message from Peer [" + id + "]");                            
                     break;
-
                 case request:
                     break;
                 case piece:
                     break;
-                default:
-                    logger.writeLog("[ERORR WITH PARSE MESSAGE]");
-        }
+            }
             
         }
 
