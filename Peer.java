@@ -14,15 +14,16 @@ public class Peer {
     
     public class PeerInfo{
 
-        String hostName;
-        int listeningPort;
-        boolean hasCompleteFile;
-        boolean[] bitArray;
-        boolean interested;
-        BitSet bitset;
-        boolean choked;
-        Stack freshPieces;
-        int piecesReceived;
+        volatile String hostName;
+        volatile int listeningPort;
+        volatile boolean hasCompleteFile;
+        volatile boolean[] bitArray;
+        volatile boolean interested;
+        volatile BitSet bitset;
+        volatile boolean choked;
+        volatile Stack freshPieces;
+        volatile int piecesReceived;
+        volatile byte[] fileBytes;
     
         PeerInfo(String h, int l, boolean b, int numP){
     
@@ -35,6 +36,7 @@ public class Peer {
             choked = true;
             freshPieces = new Stack();
             piecesReceived = 0;
+            fileBytes = null;
             
         }
     }
@@ -82,14 +84,14 @@ public class Peer {
         try{
             if(peerInfo.get(myPeerID).hasCompleteFile){
                 
-                fileBytes = Files.readAllBytes(Paths.get("./peer_" + myPeerID + "/" + fileName));
+                peerInfo.get(myPeerID).fileBytes = Files.readAllBytes(Paths.get("./peer_" + myPeerID + "/" + fileName));
                 peerInfo.get(myPeerID).bitset = new BitSet(numPieces);
                 peerInfo.get(myPeerID).hasCompleteFile = true;
                 peerInfo.get(myPeerID).bitset.set(0, numPieces, true);
 
             }
             else{
-                fileBytes = new byte[fileSize];
+                peerInfo.get(myPeerID).fileBytes = new byte[fileSize];
                 peerInfo.get(myPeerID).bitset = new BitSet(numPieces);
                 peerInfo.get(myPeerID).hasCompleteFile = false;
                 peerInfo.get(myPeerID).bitset.set(0, numPieces, false);
