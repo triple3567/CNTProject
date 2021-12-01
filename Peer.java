@@ -20,6 +20,7 @@ public class Peer {
         boolean[] bitArray;
         boolean interested;
         BitSet bitset;
+        boolean choked;
     
         PeerInfo(String h, int l, boolean b, int numP){
     
@@ -29,6 +30,7 @@ public class Peer {
             bitArray = new boolean[numP];
             bitset = new BitSet(numP);
             interested = false;
+            choked = true;
         }
     }
 
@@ -221,6 +223,8 @@ public class Peer {
                     newOptimisticNeighbor();
                     optimisticNeighborTimer = (int)Instant.now().getEpochSecond();
                 }
+
+                //TODO: if all peers have complete file, kill all threads
             }
 
         }

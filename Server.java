@@ -120,7 +120,6 @@ public class Server extends Thread{
 
                     //read 1 byte for type
                     int messageType = in.readUnsignedByte();
-                    logger.writeLog("Peer [" + myPeerID + "] read a message with message type int " + messageType);
 
                     //if message length > 0, read message payload
 
