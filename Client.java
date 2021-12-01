@@ -45,6 +45,8 @@ public class Client extends Thread{
             //send bitfield message
             sendBitfieldMessage();
 
+            //process interested or not interested
+            processInterestedOrNotInterested();
 
         }
         catch (Exception e){
@@ -141,7 +143,7 @@ public class Client extends Thread{
             message.setBitfield(peerInfo.get(myPeerID).bitset);
             byte[] messageOut = message.writeBitfield();
             sendMessage(messageOut);
-        
+
 
         }
         catch(Exception e){
@@ -155,6 +157,37 @@ public class Client extends Thread{
             String sStackTrace = sw.toString(); // stack trace as a string
             logger.writeLog("[ERROR] Peer [" + myPeerID + "]" + sStackTrace);
         }
+    }
+
+    void processInterestedOrNotInterested(){
+
+        try{
+
+            //wait for 4 bytes of data to be in input stream
+            while (in.available() < 4){
+
+            }
+
+            int messageLength = in.readInt();
+            int messageType = in.readUnsignedByte();
+
+            Message m = new Message(messageType);
+
+            if(m.msgType == Message.MessageType.interested){
+
+                peerInfo.get(peerID).interested = true;
+                logger.writeLog("Peer [" + myPeerID + "] received the 'interested' message from [" + peerID + "]");
+            }
+            else if (m.msgType == Message.MessageType.notInterested){
+
+                peerInfo.get(peerID).interested = false;
+                logger.writeLog("Peer [" + myPeerID + "] received the 'not interested' message from [" + peerID + "]");
+            }
+        }
+        catch(Exception e){
+            e.printStackTrace();
+        }
+        
     }
 
     //send a message to the output stream

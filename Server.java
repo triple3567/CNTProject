@@ -4,6 +4,8 @@ import java.nio.*;
 import java.nio.channels.*;
 import java.util.*;
 
+import javax.swing.text.DefaultStyledDocument.ElementSpec;
+
 public class Server extends Thread{
 
     private int sPort;
@@ -69,7 +71,7 @@ public class Server extends Thread{
         private ObjectOutputStream out;    //stream write to the socket
         private byte[] buffer;
         private int no; //The index number of the client
-        private int id; //ID of the client
+        private int peerID; //ID of the client
 
         public Handler(Socket connection, int no) {
             this.connection = connection;
@@ -118,6 +120,7 @@ public class Server extends Thread{
 
                     //read 1 byte for type
                     int messageType = in.readUnsignedByte();
+                    logger.writeLog("Peer [" + myPeerID + "] read a message with message type int " + messageType);
 
                     //if message length > 0, read message payload
 
@@ -131,23 +134,27 @@ public class Server extends Thread{
 
                     //create message given type and payload
 
-                    Message message = new Message(messageType, messagePayload);
+                    Message message;
+
+                    if (messageLength > 0){
+                        message = new Message(messageType, messagePayload);
+                    }
+                    else{
+                        message = new Message(messageType);
+                    }
                     message.readMessage();
 
-                    logger.writeLog("[INFO] Peer [" + myPeerID + "] has read message of type" + message.msgType + " from Peer[" + id + "]");
-
-                    //update Peer based on message
+                    //update Peer based on message and send back response if needed
                     parseMessage(message);
-
-
-                    //send back response
-                        
-
-
 
                 }
             }
             catch(Exception e){
+                    StringWriter sw = new StringWriter();
+                    PrintWriter pw = new PrintWriter(sw);
+                    e.printStackTrace(pw);
+                    String sStackTrace = sw.toString();
+                    logger.writeLog("[ERROR] Peer [" + myPeerID + "] in Server read loop with connection to peer [" + peerID + "] " + sStackTrace);
                     e.printStackTrace();
                 }
         }
@@ -165,12 +172,39 @@ public class Server extends Thread{
                 case notInterested:
                     break;
                 case have:
+                    
+                    processHave(message);
                     break;
                 case bitfield:
-                    
-                    peerInfo.get(id).bitset.or(message.bitfieldPayload);
 
-                    logger.writeLog("[INFO] Peer [" + myPeerID + "] recieved the bitfield message from Peer [" + id + "]");                            
+                    
+                    
+                    if(message.bitfieldPayload != null){
+                        peerInfo.get(peerID).bitset.or(message.bitfieldPayload);
+                        logger.writeLog("Peer [" + myPeerID + "] recieved the bitfield message from Peer [" + peerID + "]");
+                    }
+                    else{
+                        Message m = new Message(3);
+                        byte[] outMessage = m.writeNotInterested();
+                        sendMessage(outMessage);
+                        logger.writeLog("Peer [" + myPeerID + "] recieved the bitfield message from Peer [" + peerID + "]");
+                        break;
+                    }
+                    
+                    //if the connected peer has more bits set than self send interested, else send not interested
+                    if (peerInfo.get(myPeerID).bitset.cardinality() < peerInfo.get(peerID).bitset.cardinality()){
+
+                        Message m = new Message(2);
+                        byte[] outMessage = m.writeInterested();
+                        sendMessage(outMessage);
+                    }
+                    else{
+
+                        Message m = new Message(3);
+                        byte[] outMessage = m.writeNotInterested();
+                        sendMessage(outMessage);
+                    }
+                    
                     break;
                 case request:
                     break;
@@ -178,6 +212,11 @@ public class Server extends Thread{
                     break;
             }
             
+        }
+
+        void processHave(Message m){
+
+
         }
 
         void doHandshaking(){
@@ -199,7 +238,7 @@ public class Server extends Thread{
 
                     handshake = new Handshake();
                     handshake.readHandshake(buffer);
-                    id = handshake.getPeerID();
+                    peerID = handshake.getPeerID();
 
                     //clear buffer
                     Arrays.fill(buffer, (byte)0);
@@ -207,7 +246,7 @@ public class Server extends Thread{
                     //show the message to the user
                     System.out.println("Receive handshake: " + handshake.getPeerID() + " from client " + no);
 
-                    logger.writeLog("Peer [" + myPeerID + "] is connected from Peer [" + id + "]");
+                    logger.writeLog("Peer [" + myPeerID + "] is connected from Peer [" + peerID + "]");
                     
                 }
                 catch(Exception e){

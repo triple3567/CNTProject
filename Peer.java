@@ -7,6 +7,7 @@ import java.io.BufferedWriter;
 import java.util.*;
 import java.lang.Math;
 import java.nio.file.*;
+import java.time.Instant;
 
 
 public class Peer {
@@ -17,6 +18,7 @@ public class Peer {
         int listeningPort;
         boolean hasCompleteFile;
         boolean[] bitArray;
+        boolean interested;
         BitSet bitset;
     
         PeerInfo(String h, int l, boolean b, int numP){
@@ -26,6 +28,7 @@ public class Peer {
             hasCompleteFile = b;
             bitArray = new boolean[numP];
             bitset = new BitSet(numP);
+            interested = false;
         }
     }
 
@@ -62,6 +65,8 @@ public class Peer {
         readFileIfComplete();
         startClients();
         startServer();
+
+        neighborLoop();
     }
 
     void readFileIfComplete(){
@@ -182,4 +187,53 @@ public class Peer {
         }
     }
 
+    void neighborLoop(){
+
+        int preferredNeighborTimer = (int)Instant.now().getEpochSecond();
+        int optimisticNeighborTimer = (int)Instant.now().getEpochSecond();
+
+        while(true){
+            
+            if(!peerInfo.get(myPeerID).hasCompleteFile){
+
+                if((int)Instant.now().getEpochSecond() - preferredNeighborTimer > unchokingInterval){
+
+                    newPreferredNeighbors();
+                    preferredNeighborTimer = (int)Instant.now().getEpochSecond();
+                }
+                
+                if((int)Instant.now().getEpochSecond() - optimisticNeighborTimer > optimisticUnchokingInterval){
+
+                    newOptimisticNeighbor();
+                    optimisticNeighborTimer = (int)Instant.now().getEpochSecond();
+                }
+            }
+            else{
+
+                if((int)Instant.now().getEpochSecond() - preferredNeighborTimer > unchokingInterval){
+
+                    newPreferredNeighborsRandom();
+                    preferredNeighborTimer = (int)Instant.now().getEpochSecond();
+                }
+                
+                if((int)Instant.now().getEpochSecond() - optimisticNeighborTimer > optimisticUnchokingInterval){
+
+                    newOptimisticNeighbor();
+                    optimisticNeighborTimer = (int)Instant.now().getEpochSecond();
+                }
+            }
+
+        }
+    }
+
+    void newPreferredNeighbors(){
+
+    }
+    void newPreferredNeighborsRandom(){
+
+    }
+    
+    void newOptimisticNeighbor(){
+
+    }
 }
