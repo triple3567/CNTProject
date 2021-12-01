@@ -48,6 +48,8 @@ public class Client extends Thread{
             //process interested or not interested
             processInterestedOrNotInterested();
 
+            //main loop
+
         }
         catch (Exception e){
 

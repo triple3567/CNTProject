@@ -21,6 +21,8 @@ public class Peer {
         boolean interested;
         BitSet bitset;
         boolean choked;
+        Stack freshPieces;
+        int piecesReceived;
     
         PeerInfo(String h, int l, boolean b, int numP){
     
@@ -31,6 +33,9 @@ public class Peer {
             bitset = new BitSet(numP);
             interested = false;
             choked = true;
+            freshPieces = new Stack();
+            piecesReceived = 0;
+            
         }
     }
 

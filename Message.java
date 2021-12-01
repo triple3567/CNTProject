@@ -244,7 +244,7 @@ public class Message {
         messageLengthBits = ByteBuffer.allocate(4).putInt(payloadBits.length).array();
 
         ByteBuffer bb = ByteBuffer.allocate(4); 
-        bb.putInt(messageTypeNumber); 
+        bb.putInt(messageTypeNumber);
         byte messageTypeBit = bb.array()[3];
 
         byte[] payloadBytes = ByteBuffer.wrap(payloadBits).array();

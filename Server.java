@@ -132,7 +132,6 @@ public class Server extends Thread{
                     }
 
                     //create message given type and payload
-
                     Message message;
 
                     if (messageLength > 0){
