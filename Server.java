@@ -122,7 +122,6 @@ public class Server extends Thread{
                     int messageType = in.readUnsignedByte();
 
                     //if message length > 0, read message payload
-
                     byte[] messagePayload = null;
 
                     if(messageLength > 0){
@@ -131,19 +130,8 @@ public class Server extends Thread{
                         in.read(messagePayload, 0, messageLength);
                     }
 
-                    //create message given type and payload
-                    Message message;
-
-                    if (messageLength > 0){
-                        message = new Message(messageType, messagePayload);
-                    }
-                    else{
-                        message = new Message(messageType);
-                    }
-                    message.readMessage();
-
                     //update Peer based on message and send back response if needed
-                    parseMessage(message);
+                    parseMessage(messageType, messagePayload);
 
                 }
             }
@@ -157,33 +145,33 @@ public class Server extends Thread{
                 }
         }
 
-        void parseMessage(Message message){
+        void parseMessage(int msgType, byte[] msgPayload){
 
-            switch (message.msgType){
+            switch (msgType){
             
-                case choke:
+                case 0:
                     break;
-                case unchoke:
+                case 1:
                     break;
-                case interested:
+                case 2:
                     break;
-                case notInterested:
+                case 3:
                     break;
-                case have:
+                case 4:
                     
-                    processHave(message);
+                    int pieceNum = Message.readHavePayload(msgPayload);
                     break;
-                case bitfield:
+                case 5:
+                    
+                    BitSet b = Message.readBitfieldPayload(msgPayload);
 
-                    
-                    
-                    if(message.bitfieldPayload != null){
-                        peerInfo.get(peerID).bitset.or(message.bitfieldPayload);
+                    if(b != null){
+                        peerInfo.get(peerID).bitset.or(b);
                         logger.writeLog("Peer [" + myPeerID + "] recieved the bitfield message from Peer [" + peerID + "]");
                     }
                     else{
                         Message m = new Message(3);
-                        byte[] outMessage = m.writeNotInterested();
+                        byte[] outMessage = m.writeMessage();
                         sendMessage(outMessage);
                         logger.writeLog("Peer [" + myPeerID + "] recieved the bitfield message from Peer [" + peerID + "]");
                         break;
@@ -193,20 +181,20 @@ public class Server extends Thread{
                     if (peerInfo.get(myPeerID).bitset.cardinality() < peerInfo.get(peerID).bitset.cardinality()){
 
                         Message m = new Message(2);
-                        byte[] outMessage = m.writeInterested();
+                        byte[] outMessage = m.writeMessage();
                         sendMessage(outMessage);
                     }
                     else{
 
                         Message m = new Message(3);
-                        byte[] outMessage = m.writeNotInterested();
+                        byte[] outMessage = m.writeMessage();
                         sendMessage(outMessage);
                     }
                     
                     break;
-                case request:
+                case 6:
                     break;
-                case piece:
+                case 7:
                     break;
             }
             

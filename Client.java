@@ -142,8 +142,8 @@ public class Client extends Thread{
 
 
             Message message = new Message(5);
-            message.setBitfield(peerInfo.get(myPeerID).bitset);
-            byte[] messageOut = message.writeBitfield();
+            message.setBitfieldPayload(peerInfo.get(myPeerID).bitset);
+            byte[] messageOut = message.writeMessage();
             sendMessage(messageOut);
 
 
