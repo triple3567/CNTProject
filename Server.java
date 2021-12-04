@@ -3,7 +3,9 @@ import java.io.*;
 import java.nio.*;
 import java.nio.channels.*;
 import java.util.*;
+import java.util.concurrent.atomic.AtomicBoolean;
 
+import javax.management.ValueExp;
 import javax.swing.text.DefaultStyledDocument.ElementSpec;
 
 public class Server extends Thread{
@@ -15,6 +17,7 @@ public class Server extends Thread{
     public String host;
     public Logger logger;
     Map<Integer, Peer.PeerInfo> peerInfo;
+    private final AtomicBoolean running = new AtomicBoolean(false);
 
     Server(int sPort, int myPeerID, Map<Integer, Peer.PeerInfo> peerInfo){
 
@@ -23,7 +26,18 @@ public class Server extends Thread{
         this.handlers = new ArrayList<>();
         logger = new Logger(myPeerID);
         this.peerInfo = peerInfo;
+        running.set(true);
 
+    }
+
+    public void interrupt(){
+
+
+        for(Handler h : handlers){
+
+            h.interrupt();
+        }
+        running.set(false);
     }
 
 
@@ -39,7 +53,7 @@ public class Server extends Thread{
             try {
 
                 //Add a new listener thread to handlers array when a connection is established. 
-                while(true) {
+                while(running.get()) {
 
                     handlers.add(new Handler(listener.accept(), numConnections));
                     handlers.get(numConnections).start();
@@ -63,6 +77,7 @@ public class Server extends Thread{
         }
     }
 
+
     private class Handler extends Thread{
 
         private Handshake message;    //handshake message received from the client
@@ -72,12 +87,19 @@ public class Server extends Thread{
         private byte[] buffer;
         private int no; //The index number of the client
         private int peerID; //ID of the client
+        private final AtomicBoolean running = new AtomicBoolean(false);
 
         public Handler(Socket connection, int no) {
             this.connection = connection;
             this.no = no;
             this.buffer = new byte[100];
+            running.set(true);
         }     
+
+        public void interrupt(){
+
+            running.set(false);
+        }
 
         public void run() {
 
@@ -88,6 +110,7 @@ public class Server extends Thread{
                 out.flush();
                 in = new ObjectInputStream(connection.getInputStream());
 
+
                 doHandshaking();
 
                 readLoop();
@@ -95,9 +118,35 @@ public class Server extends Thread{
             }
             catch(IOException e){
                 System.out.println("Disconnect with Client " + no);
+
+                StringWriter sw = new StringWriter();
+                PrintWriter pw = new PrintWriter(sw);
+                e.printStackTrace(pw);
+                String sStackTrace = sw.toString();
+                logger.writeLog("[ERROR] Peer [" + myPeerID + "] in Server read loop with connection to peer [" + peerID + "] " + sStackTrace);
             }
             finally{
 
+                //Close connections
+            try{
+
+                if(in != null){
+                    
+                    in.close();
+                }
+                
+                if(out != null){
+                    
+                    out.close();
+                }
+
+            }
+            catch(IOException ioException){
+                ioException.printStackTrace();
+            }
+            catch(Exception e){
+                e.printStackTrace();
+            }
             }
 
         }
@@ -106,9 +155,18 @@ public class Server extends Thread{
 
             try{
 
-                while(true){
+                while(running.get()){
 
-                    if (in.available() < 4){
+                    checkFileCompletion();
+
+                    // if unchoked and buffer has no data
+                    if (in.available() < 4 && !peerInfo.get(peerID).chokedby && peerInfo.get(myPeerID).hasCompleteFile == false){
+
+                        sendRequest();
+                        continue;
+                    }
+
+                    if (in.available() < 4 ){
                         
                         //TODO, Check for completion
 
@@ -150,9 +208,16 @@ public class Server extends Thread{
             switch (msgType){
             
                 case 0:
+                    peerInfo.get(peerID).chokedby = true;
+                    logger.writeLog("Peer [" + myPeerID + "] is choked by Peer [" + peerID + "]");
                     break;
+
                 case 1:
+                    
+                    peerInfo.get(peerID).chokedby = true;
+                    logger.writeLog("Peer [" + myPeerID + "] is unchoked by Peer [" + peerID + "]");
                     break;
+
                 case 2:
                     break;
                 case 3:
@@ -160,6 +225,8 @@ public class Server extends Thread{
                 case 4:
                     
                     int pieceNum = Message.readHavePayload(msgPayload);
+                    logger.writeLog("Peer [" + myPeerID + "] recieved the 'have' message from Peer [" + peerID + "] for the piece [" + pieceNum + "]");
+                    processHave(pieceNum);
                     break;
                 case 5:
                     
@@ -167,28 +234,23 @@ public class Server extends Thread{
 
                     if(b != null){
                         peerInfo.get(peerID).bitset.or(b);
-                        logger.writeLog("Peer [" + myPeerID + "] recieved the bitfield message from Peer [" + peerID + "]");
+                        logger.writeLog("Peer [" + myPeerID + "] recieved the 'bitfield' message from Peer [" + peerID + "]");
                     }
                     else{
-                        Message m = new Message(3);
-                        byte[] outMessage = m.writeMessage();
-                        sendMessage(outMessage);
-                        logger.writeLog("Peer [" + myPeerID + "] recieved the bitfield message from Peer [" + peerID + "]");
+                        
+                        sendUninterested();
+                        logger.writeLog("Peer [" + myPeerID + "] recieved the 'bitfield' message from Peer [" + peerID + "]");
                         break;
                     }
                     
                     //if the connected peer has more bits set than self send interested, else send not interested
                     if (peerInfo.get(myPeerID).bitset.cardinality() < peerInfo.get(peerID).bitset.cardinality()){
 
-                        Message m = new Message(2);
-                        byte[] outMessage = m.writeMessage();
-                        sendMessage(outMessage);
+                        sendInterested();
                     }
                     else{
 
-                        Message m = new Message(3);
-                        byte[] outMessage = m.writeMessage();
-                        sendMessage(outMessage);
+                        sendUninterested();
                     }
                     
                     break;
@@ -200,8 +262,56 @@ public class Server extends Thread{
             
         }
 
-        void processHave(Message m){
+        void processHave(int piece){
 
+            peerInfo.get(peerID).bitset.set(piece);
+
+            if(peerInfo.get(peerID).bitset.cardinality() == peerInfo.get(peerID).bitset.size()){
+
+                peerInfo.get(peerID).hasCompleteFile = true;
+            }
+
+            if(peerInfo.get(myPeerID).bitset.get(piece) == false && peerInfo.get(peerID).interested == false){
+
+                sendInterested();
+            }
+            else if(peerInfo.get(myPeerID).bitset.get(piece) == false && peerInfo.get(peerID).interested == true){
+
+                return;
+            }
+            else if(peerInfo.get(myPeerID).bitset.get(piece) == true){
+
+                BitSet peerBitset = (BitSet)peerInfo.get(peerID).bitset.clone();
+                BitSet myBitset = (BitSet)peerInfo.get(myPeerID).bitset.clone();
+
+                ArrayList<Integer> bitIndex = new ArrayList<Integer>();
+
+                for(int i = 0; i < myBitset.size(); i++){
+
+                    if(myBitset.get(i) == false && peerBitset.get(i) == true){
+    
+                        bitIndex.add(i);
+                    }
+                }
+
+                if(bitIndex.size() > 0 && peerInfo.get(peerID).interested == true){
+
+                    return;
+                }
+                else if (bitIndex.size() > 0 && peerInfo.get(peerID).interested == false){
+                    
+                    sendInterested();
+                }
+                else if(bitIndex.size() == 0 && peerInfo.get(peerID).interested == true){
+
+                    sendUninterested();
+                }
+                else if(bitIndex.size() == 0 && peerInfo.get(peerID).interested == false){
+                    return;
+                }
+
+                return;
+            }
 
         }
 
@@ -220,6 +330,7 @@ public class Server extends Thread{
                     //receive the message sent from the client
                     in.readFully(buffer, 0, 32);
                     
+
                     System.out.println(Arrays.toString(buffer));
 
                     handshake = new Handshake();
@@ -229,14 +340,18 @@ public class Server extends Thread{
                     //clear buffer
                     Arrays.fill(buffer, (byte)0);
 
-                    //show the message to the user
-                    System.out.println("Receive handshake: " + handshake.getPeerID() + " from client " + no);
 
                     logger.writeLog("Peer [" + myPeerID + "] is connected from Peer [" + peerID + "]");
                     
                 }
                 catch(Exception e){
                     e.printStackTrace();
+
+                    StringWriter sw = new StringWriter();
+                    PrintWriter pw = new PrintWriter(sw);
+                    e.printStackTrace(pw);
+                    String sStackTrace = sw.toString(); // stack trace as a string
+                    logger.writeLog("[ERROR] Peer [" + myPeerID + "]" + sStackTrace);
                 }
         }
 
@@ -250,7 +365,188 @@ public class Server extends Thread{
                 ioException.printStackTrace();
             }
         }
+
+        void sendRequest(){
+
+            BitSet peerBitset = (BitSet)peerInfo.get(peerID).bitset.clone();
+            BitSet myBitset = (BitSet)peerInfo.get(myPeerID).bitset.clone();
+
+            ArrayList<Integer> bitIndex = new ArrayList<Integer>();
+
+            for(int i = 0; i < myBitset.size(); i++){
+
+                if(myBitset.get(i) == false && peerBitset.get(i) == true){
+
+                    bitIndex.add(i);
+                }
+            }
+
+            if(bitIndex.size() == 0){
+                return;
+            }
+
+
+
+            int requestIndex = (int)(Math.random() * bitIndex.size());
+
+            Message m = new Message(6);
+            m.setRequestPayload(bitIndex.get(requestIndex));
+            byte[] mOut = m.writeMessage();
+
+            sendMessage(mOut);
+
+            logger.writeLog("[INFO] Peer [" + myPeerID + "] sent the request message to Peer [" + peerID + "] for peice " + bitIndex.get(requestIndex));
+
+            processPiece(bitIndex.get(requestIndex));
+
+            return;
+            
+        }
+
+        void processPiece(int pieceIndex){
+
+            try{
+                while (in.available() < 4 ){
+                            
+                    //wait for piece
+
+                }
+
+                loop: while (true){
+
+                    //read 4 bytes for message length
+                    int messageLength = in.readInt();
+
+                    //read 1 byte for type
+                    int messageType = in.readUnsignedByte();
+
+                    //process message payload
+                    byte[] messagePayload = null;
+
+                    if(messageLength > 0){
+
+                        messagePayload = new byte[messageLength];
+                        in.read(messagePayload, 0, messageLength);
+                    }
+
+                    switch (messageType){
+
+                        case 0:
+
+                            peerInfo.get(peerID).chokedby = true;
+                            logger.writeLog("Peer [" + myPeerID + "] is choked by Peer [" + peerID + "]");
+                            break;
+
+                        case 1:
+
+                            peerInfo.get(peerID).chokedby = false;
+                            logger.writeLog("Peer [" + myPeerID + "] is unchoked by Peer [" + peerID + "]");
+                            break;
+
+                        case 4:
+
+                            int pieceNum = Message.readHavePayload(messagePayload);
+                            logger.writeLog("Peer [" + myPeerID + "] recieved the 'have' message from Peer [" + peerID + "] for the piece [" + pieceNum + "]");
+                            processHave(pieceNum);
+                            break;
+
+                        case 7:
+
+                            byte[] fullPiece = messagePayload;
+
+                            int index = pieceIndex * peerInfo.get(myPeerID).pieceSize;
+
+                            for(int i = 0; i < peerInfo.get(myPeerID).pieceSize; i++){
+
+                                peerInfo.get(myPeerID).fileBytes[index] = fullPiece[i];
+                                index++;
+                            }
+
+                            peerInfo.get(peerID).piecesReceived += 1;
+
+                            for(Map.Entry<Integer, Peer.PeerInfo> entry : peerInfo.entrySet()){
+
+                                int key = entry.getKey();
+                                Peer.PeerInfo value = entry.getValue();
+                    
+                                //iterate over all peers except self
+                                if(key != myPeerID) {
+                    
+                                    value.freshPieces.push(pieceIndex);
+                                }
+                            }
+
+                            logger.writeLog("Peer [" + myPeerID + "] has download the piece [" + pieceIndex + "] from [" + peerID + "]. Now the number of pieces it has is " + peerInfo.get(myPeerID).bitset.cardinality());
+
+                            if(peerInfo.get(myPeerID).bitset.cardinality() == peerInfo.get(myPeerID).bitset.size()){
+
+                                peerInfo.get(myPeerID).hasCompleteFile = true;
+                            }
+
+                            break loop;
+                    }
+                }
+
+            }
+            catch(Exception e){
+
+                StringWriter sw = new StringWriter();
+                PrintWriter pw = new PrintWriter(sw);
+                e.printStackTrace(pw);
+                String sStackTrace = sw.toString(); // stack trace as a string
+                logger.writeLog("[ERROR] Peer [" + myPeerID + "]" + sStackTrace);
+            }
+        }
         
+        void sendInterested(){
+
+            Message m = new Message(2);
+            byte[] outMessage = m.writeMessage();
+
+            peerInfo.get(myPeerID).interested = true;
+
+            sendMessage(outMessage);
+        }
+
+        void sendUninterested(){
+
+            Message m = new Message(3);
+            byte[] outMessage = m.writeMessage();
+
+            peerInfo.get(myPeerID).interested = false;
+
+            sendMessage(outMessage);
+        }
+
+        void checkFileCompletion(){
+
+            if(peerInfo.get(myPeerID).bitset.cardinality() == peerInfo.get(myPeerID).bitset.size()){
+
+                peerInfo.get(myPeerID).hasCompleteFile = true;
+
+                for(Map.Entry<Integer, Peer.PeerInfo> entry : peerInfo.entrySet()){
+
+                    int key = entry.getKey();
+                    Peer.PeerInfo value = entry.getValue();
+        
+                    //iterate over all peers except self
+                    if(key != myPeerID) {
+        
+                        if(value.interested == true){
+                            value.interested = false;
+
+                            sendUninterested();
+                        }
+                    }
+                }
+            }
+        }
+
     }
+
+    
+
+
+
 
 }

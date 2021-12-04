@@ -1,9 +1,12 @@
 import java.io.File;
 import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
 import java.io.FileWriter;
 import java.io.IOException;
+import java.io.OutputStream;
 import java.io.PrintWriter;
 import java.io.BufferedWriter;
+import java.io.StringWriter;
 import java.util.*;
 import java.lang.Math;
 import java.nio.file.*;
@@ -21,12 +24,16 @@ public class Peer {
         volatile boolean interested;
         volatile BitSet bitset;
         volatile boolean choked;
-        volatile Stack freshPieces;
+        volatile Stack<Integer> freshPieces;
         volatile int piecesReceived;
         volatile byte[] fileBytes;
+        volatile boolean chokedby;
+        volatile int pieceSize;
+        volatile double downloadRate;
     
-        PeerInfo(String h, int l, boolean b, int numP){
+        PeerInfo(String h, int l, boolean b, int numP, int pSize){
     
+            pieceSize = pSize;
             hostName = h;
             listeningPort = l;
             hasCompleteFile = b;
@@ -34,9 +41,11 @@ public class Peer {
             bitset = new BitSet(numP);
             interested = false;
             choked = true;
-            freshPieces = new Stack();
+            chokedby = true;
+            freshPieces = new Stack<Integer>();
             piecesReceived = 0;
             fileBytes = null;
+            downloadRate = 0.0;
             
         }
     }
@@ -52,6 +61,8 @@ public class Peer {
     int numPieces;
     byte[] fileBytes;
     Logger logger;
+    int startTime;
+    boolean writeFileSwitch;
 
     //peer info file
     Map<Integer, PeerInfo> peerInfo = new HashMap<>(); 
@@ -63,6 +74,7 @@ public class Peer {
     Peer(int peerID){
 
         myPeerID = peerID;
+        startTime = (int)Instant.now().getEpochSecond();
         logger = new Logger(myPeerID);
         startup();
     }
@@ -74,6 +86,8 @@ public class Peer {
         readFileIfComplete();
         startClients();
         startServer();
+
+
 
         neighborLoop();
     }
@@ -88,6 +102,7 @@ public class Peer {
                 peerInfo.get(myPeerID).bitset = new BitSet(numPieces);
                 peerInfo.get(myPeerID).hasCompleteFile = true;
                 peerInfo.get(myPeerID).bitset.set(0, numPieces, true);
+                writeFileSwitch = true;
 
             }
             else{
@@ -95,6 +110,7 @@ public class Peer {
                 peerInfo.get(myPeerID).bitset = new BitSet(numPieces);
                 peerInfo.get(myPeerID).hasCompleteFile = false;
                 peerInfo.get(myPeerID).bitset.set(0, numPieces, false);
+                writeFileSwitch = false;
 
             }
         }
@@ -183,7 +199,7 @@ public class Peer {
                 boolean hasCompleteFile = reader.nextInt() == 1;
                 reader.nextLine();
 
-                PeerInfo p = new PeerInfo(hostname, listeningPort, hasCompleteFile, numPieces);
+                PeerInfo p = new PeerInfo(hostname, listeningPort, hasCompleteFile, numPieces, pieceSize);
 
                 peerInfo.put(peerId, p);
             }
@@ -201,7 +217,7 @@ public class Peer {
         int preferredNeighborTimer = (int)Instant.now().getEpochSecond();
         int optimisticNeighborTimer = (int)Instant.now().getEpochSecond();
 
-        while(true){
+        loop: while(true){
             
             if(!peerInfo.get(myPeerID).hasCompleteFile){
 
@@ -219,6 +235,11 @@ public class Peer {
             }
             else{
 
+                if(writeFileSwitch == false){
+
+                    writeFile();
+                }
+
                 if((int)Instant.now().getEpochSecond() - preferredNeighborTimer > unchokingInterval){
 
                     newPreferredNeighborsRandom();
@@ -231,20 +252,223 @@ public class Peer {
                     optimisticNeighborTimer = (int)Instant.now().getEpochSecond();
                 }
 
-                //TODO: if all peers have complete file, kill all threads
+                for(Map.Entry<Integer, PeerInfo> entry : peerInfo.entrySet()){
+
+                    int key = entry.getKey();
+                    PeerInfo value = entry.getValue();
+        
+                    //iterate over all peers except self
+                    if(key != myPeerID) {
+        
+                        if(value.hasCompleteFile == false){
+
+                            continue loop;
+                        }
+                    }
+                }
+
+                //exit condition
+                killThreads();
+                break loop;
+                
             }
 
         }
     }
 
+    void writeFile(){
+
+        try{
+
+            OutputStream out = new FileOutputStream("./peer_" + myPeerID + "/" + fileName);
+            out.write(peerInfo.get(myPeerID).fileBytes);
+            out.close();
+        }
+        catch(Exception e){
+
+            StringWriter sw = new StringWriter();
+            PrintWriter pw = new PrintWriter(sw);
+            e.printStackTrace(pw);
+            String sStackTrace = sw.toString(); // stack trace as a string
+            logger.writeLog("[ERROR] Peer [" + myPeerID + "]" + sStackTrace);
+        }
+
+        logger.writeLog("Peer [" + myPeerID + "] has downloaded the complete file");
+        writeFileSwitch = true;
+    }
+
+    void killThreads(){
+
+        for(Client c : clients){
+
+            c.interrupt();
+        }
+        
+    }
+
     void newPreferredNeighbors(){
 
+        int timeElapsed = startTime / (int)Instant.now().getEpochSecond();
+        Map<Integer, Double> downloadRates = new HashMap<>();
+        ArrayList<Integer> unchokeNeighbors = new ArrayList<Integer>();
+        int numInterested = 0;
+
+        for(Map.Entry<Integer, PeerInfo> entry : peerInfo.entrySet()){
+
+            int key = entry.getKey();
+            PeerInfo value = entry.getValue();
+
+            //iterate over all peers except self
+            if(key != myPeerID) {
+
+                value.downloadRate = (double)value.piecesReceived / (double)timeElapsed;
+                
+                if(value.interested){
+
+                    numInterested++;
+                    downloadRates.put(key, value.downloadRate);
+                }
+
+            }
+        }
+
+        int neighborsToSet = Math.min(numInterested, numOfPreferredNeighbors);
+
+        for(int i = 0; i < neighborsToSet; i++){
+
+            int peerIdMax = -1;
+            double max = -1.0;
+
+            for(Map.Entry<Integer, Double> entry : downloadRates.entrySet()){
+
+                int key = entry.getKey();
+                double value = entry.getValue();
+
+                if (value > max){
+
+                    max = value;
+                    peerIdMax = key;
+                }
+                
+            }
+
+            unchokeNeighbors.add(peerIdMax);
+            downloadRates.remove(peerIdMax);
+                
+        }
+
+        for(Map.Entry<Integer, PeerInfo> entry : peerInfo.entrySet()){
+
+            int key = entry.getKey();
+            PeerInfo value = entry.getValue();
+
+            //iterate over all peers except self
+            if(key != myPeerID) {
+
+                if(unchokeNeighbors.contains(key)){
+
+                    value.choked = false;
+                }
+                else{
+                    
+                    value.choked = true;
+                }
+
+            }
+        }
+
+        return;
+
     }
+
     void newPreferredNeighborsRandom(){
 
+        ArrayList<Integer> neighborsInterested = new ArrayList<Integer>();
+        ArrayList<Integer> unchokeNeighbors = new ArrayList<Integer>();
+        int numInterested = 0;
+
+        for(Map.Entry<Integer, PeerInfo> entry : peerInfo.entrySet()){
+
+            int key = entry.getKey();
+            PeerInfo value = entry.getValue();
+
+            //iterate over all peers except self
+            if(key != myPeerID) {
+
+                if(value.interested == true){
+                    
+                    numInterested++;
+                    neighborsInterested.add(key);
+                }
+
+
+            }
+        }
+
+        int neighborsToSet = Math.min(numInterested, numOfPreferredNeighbors);
+
+        for(int i = 0; i < neighborsToSet; i++){
+            int index = (int)(Math.random() * neighborsInterested.size());
+            int unchokePeer = neighborsInterested.get(index);
+            unchokeNeighbors.add(unchokePeer);
+        }
+
+        for(Map.Entry<Integer, PeerInfo> entry : peerInfo.entrySet()){
+
+            int key = entry.getKey();
+            PeerInfo value = entry.getValue();
+
+            //iterate over all peers except self
+            if(key != myPeerID) {
+
+                if(unchokeNeighbors.contains(key)){
+
+                    value.choked = false;
+                }
+                else{
+                    
+                    value.choked = true;
+                }
+
+            }
+        }
+
+        return;
     }
     
     void newOptimisticNeighbor(){
 
+
+        ArrayList<Integer> neighborsInterested = new ArrayList<Integer>();
+        int unchokeNeighbor;
+
+        for(Map.Entry<Integer, PeerInfo> entry : peerInfo.entrySet()){
+
+            int key = entry.getKey();
+            PeerInfo value = entry.getValue();
+
+            //iterate over all peers except self
+            if(key != myPeerID) {
+
+                if(value.interested == true && value.choked == true){
+
+                    neighborsInterested.add(key);
+                }
+
+            }
+        }
+
+        if(neighborsInterested.size() == 0){
+            return;
+        }
+
+        int index = (int)(Math.random() * neighborsInterested.size());
+        int unchokePeer = neighborsInterested.get(index);
+        unchokeNeighbor = unchokePeer;
+
+        peerInfo.get(unchokeNeighbor).choked = false;
+
+        return;
     }
+    
 }

@@ -4,6 +4,9 @@ import java.nio.*;
 import java.nio.channels.*;
 import java.util.*;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
+
+import javax.swing.plaf.basic.BasicLookAndFeel;
 
 public class Client extends Thread{
     Socket requestSocket;           //socket connect to the server
@@ -18,6 +21,7 @@ public class Client extends Thread{
     int peerID;     //id of server
     Logger logger;
     Map<Integer, Peer.PeerInfo> peerInfo;
+    private final AtomicBoolean running = new AtomicBoolean(false);
     
     Client(int p, String h, int myPeerID, Map<Integer, Peer.PeerInfo> peerInfo, int peerID) {
 
@@ -27,8 +31,13 @@ public class Client extends Thread{
         this.peerID = peerID;
         this.peerInfo = peerInfo;
         logger = new Logger(myPeerID);
+        running.set(true);
     }
     
+    public void interrupt(){
+        running.set(false);
+    }
+
     public void run(){
 
         connectToServer();
@@ -49,6 +58,10 @@ public class Client extends Thread{
             processInterestedOrNotInterested();
 
             //main loop
+
+            while (running.get()){
+
+            }
 
         }
         catch (Exception e){
