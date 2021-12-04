@@ -58,10 +58,8 @@ public class Client extends Thread{
             processInterestedOrNotInterested();
 
             //main loop
-
-            while (running.get()){
-
-            }
+            clientLoop();
+            
 
         }
         catch (Exception e){
@@ -98,6 +96,14 @@ public class Client extends Thread{
                 e.printStackTrace();
             }
 
+        }
+    }
+
+    void clientLoop(){
+
+        while (running.get()){
+
+            
         }
     }
 

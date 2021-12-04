@@ -119,6 +119,7 @@ public class Peer {
         }
     }
 
+
     void startClients(){
 
         //Create a client thread for each neighbor read from PeerInfo.cfg that is not itself.
