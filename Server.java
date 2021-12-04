@@ -18,9 +18,11 @@ public class Server extends Thread{
     public Logger logger;
     Map<Integer, Peer.PeerInfo> peerInfo;
     private final AtomicBoolean running = new AtomicBoolean(false);
+    public int maxConnections;
 
-    Server(int sPort, int myPeerID, Map<Integer, Peer.PeerInfo> peerInfo){
-
+    Server(int sPort, int myPeerID, Map<Integer, Peer.PeerInfo> peerInfo, int totalConnections){
+        
+        maxConnections = totalConnections;
         this.sPort = sPort;
         this.myPeerID = myPeerID;
         this.handlers = new ArrayList<>();
@@ -53,12 +55,16 @@ public class Server extends Thread{
             try {
 
                 //Add a new listener thread to handlers array when a connection is established. 
-                while(running.get()) {
+                while(numConnections < maxConnections) {
 
                     handlers.add(new Handler(listener.accept(), numConnections));
                     handlers.get(numConnections).start();
                     System.out.println("[SERVER] Connection " + numConnections + " established");
                     numConnections++;
+                }
+
+                while(running.get()){
+                    
                 }
             }
             catch(Exception e){

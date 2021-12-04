@@ -141,7 +141,7 @@ public class Peer {
     void startServer(){
 
         //Start listening on the listening port
-        server = new Server(peerInfo.get(myPeerID).listeningPort, myPeerID, peerInfo);
+        server = new Server(peerInfo.get(myPeerID).listeningPort, myPeerID, peerInfo, peerInfo.size() - 1);
         server.start();
     }
     
