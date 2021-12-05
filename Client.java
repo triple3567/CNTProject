@@ -18,7 +18,9 @@ public class Client extends Thread{
     int peerID;     //id of server
     Logger logger;
     Map<Integer, Peer.PeerInfo> peerInfo;
-    
+    boolean sentChokeStatus;
+    boolean clientStatus;
+
     Client(int p, String h, int myPeerID, Map<Integer, Peer.PeerInfo> peerInfo, int peerID) {
 
         port = p;
@@ -27,6 +29,7 @@ public class Client extends Thread{
         this.peerID = peerID;
         this.peerInfo = peerInfo;
         logger = new Logger(myPeerID);
+        clientStatus = true;
     }
     
     public void run(){
@@ -49,7 +52,8 @@ public class Client extends Thread{
             processInterestedOrNotInterested();
 
             //main loop
-
+            mainLoop();
+            
         }
         catch (Exception e){
 
@@ -77,6 +81,7 @@ public class Client extends Thread{
                     
                     requestSocket.close();
                 }
+                logger.writeLog("Peer[" + myPeerID + "] closing Client with peer [" + peerID +"]");
             }
             catch(IOException ioException){
                 ioException.printStackTrace();
@@ -87,7 +92,101 @@ public class Client extends Thread{
 
         }
     }
+    void mainLoop(){
+    
+        while(true){
+            if (clientStatus == false){
+                break;
+            }
+            if(peerInfo.get(peerID).choked == true){
+                if(sentChokeStatus == false){
+                    Message messageC = new Message(0);
+                    byte[] messageOut = messageC.writeMessage();
+                    sendMessage(messageOut);
+                    sentChokeStatus = true;
+                }
+            }
+            else{
+                if(sentChokeStatus == true){
+                    Message messageU = new Message(1);
+                    byte[] messageOut = messageU.writeMessage();
+                    sendMessage(messageOut);
+                    sentChokeStatus = true;
+                }
+            }
+            try{
+                if (in.available() < 4){
+                    continue;
+                }
+                //read 4 bytes for message length
+                int messageLength = in.readInt();
 
+                //read 1 byte for type
+                int messageType = in.readUnsignedByte();
+
+                //if message length > 0, read message payload
+                byte[] messagePayload = null;
+
+                if(messageLength > 0){
+
+                    messagePayload = new byte[messageLength];
+                    in.read(messagePayload, 0, messageLength);
+                }
+                switch(messageType){
+                    case 0:
+                        logger.writeLog("Choke Mssg Recieved by Client of" + peerID);
+                        break;
+                    case 1:
+                        logger.writeLog("UnChoke Mssg Recieved by Client of" + peerID);
+                        break;
+                    case 2:
+                        logger.writeLog("Peer[" + myPeerID + "] received 'Interested' message from [" + peerID +"]");
+                        peerInfo.get(peerID).interested = true;
+                        break;
+                    case 3:
+                        logger.writeLog("Peer[" + myPeerID + "] received 'Not Interested' message from [" + peerID +"]");
+                        peerInfo.get(peerID).interested = false;
+                        break;
+                    case 4:
+                        logger.writeLog("Have Mssg Recieved by Client of" + peerID);
+                        break;
+                    case 5:
+                        logger.writeLog("Bitfield Mssg Recieved by Client of" + peerID);
+                        break;
+                    case 6:
+                        logger.writeLog("Peer[" + myPeerID + "] received 'Request' message from [" + peerID +"]");
+                        sendRequestedPiece(Message.readRequestPayload(messagePayload));
+                        break;
+                    case 7:
+                        logger.writeLog("Piece Mssg Recieved by Client of" + peerID);
+                        break;
+                }
+            }
+            catch(Exception e){
+                e.printStackTrace();
+                StringWriter sw = new StringWriter();
+                PrintWriter pw = new PrintWriter(sw);
+                e.printStackTrace(pw);
+                String sStackTrace = sw.toString(); // stack trace as a string
+                logger.writeLog("[ERROR] Peer [" + myPeerID + "]" + sStackTrace);
+            }
+            
+            while(peerInfo.get(myPeerID).freshPieces.empty() != false){
+                int p = (int)peerInfo.get(myPeerID).freshPieces.pop();
+                Message messageH = new Message(4);
+                messageH.setHavePayload(p);
+                byte[] messageOut = messageH.writeMessage();
+                sendMessage(messageOut);
+                
+            }
+        }
+        
+    
+    
+    }
+    void sendRequestedPiece(int p){
+        //TODO
+    }
     void connectToServer(){
 
         //create a socket to connects to the server, restarts if fails
