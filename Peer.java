@@ -93,6 +93,8 @@ public class Peer {
 
 
         neighborLoop();
+
+        return;
     }
 
     void readFileIfComplete(){
@@ -154,6 +156,8 @@ public class Peer {
                 clients.get(clients.size() - 1).start();
             }
         }
+
+        return;
     }
 
     void startServer(){
@@ -161,6 +165,8 @@ public class Peer {
         //Start listening on the listening port
         server = new Server(peerInfo.get(myPeerID).listeningPort, myPeerID, peerInfo, peerInfo.size() - 1);
         server.start();
+
+        return;
     }
     
     void readCommonFile(){
@@ -198,6 +204,12 @@ public class Peer {
         }
         catch (FileNotFoundException e){
             e.printStackTrace();
+
+            StringWriter sw = new StringWriter();
+            PrintWriter pw = new PrintWriter(sw);
+            e.printStackTrace(pw);
+            String sStackTrace = sw.toString();
+            logger.writeLog("[ERROR] Peer [" + myPeerID + "] in readCommonFile " + sStackTrace);
         }
 
     }
@@ -228,6 +240,12 @@ public class Peer {
         }
         catch(FileNotFoundException e){
             e.printStackTrace();
+
+            StringWriter sw = new StringWriter();
+            PrintWriter pw = new PrintWriter(sw);
+            e.printStackTrace(pw);
+            String sStackTrace = sw.toString();
+            logger.writeLog("[ERROR] Peer [" + myPeerID + "] in readPeerInfoFile " + sStackTrace);
         }
     }
 
