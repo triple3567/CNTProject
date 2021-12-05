@@ -358,7 +358,7 @@ public class Peer {
 
     void newPreferredNeighbors(){
 
-        int timeElapsed = startTime / (int)Instant.now().getEpochSecond();
+        int timeElapsed = (int)Instant.now().getEpochSecond() - startTime;
         Map<Integer, Double> downloadRates = new HashMap<>();
         ArrayList<Integer> unchokeNeighbors = new ArrayList<Integer>();
         int numInterested = 0;
