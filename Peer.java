@@ -384,8 +384,11 @@ public class Peer {
                 
             }
 
-            unchokeNeighbors.add(peerIdMax);
-            downloadRates.remove(peerIdMax);
+            if(peerIdMax != -1){
+                
+                unchokeNeighbors.add(peerIdMax);
+                downloadRates.remove(peerIdMax);
+            }
                 
         }
 
