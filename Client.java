@@ -2,6 +2,7 @@ import java.net.*;
 import java.io.*;
 import java.nio.*;
 import java.nio.channels.*;
+import java.time.Period;
 import java.util.*;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -22,6 +23,7 @@ public class Client extends Thread{
     Logger logger;
     Map<Integer, Peer.PeerInfo> peerInfo;
     private final AtomicBoolean running = new AtomicBoolean(false);
+    boolean currChoked;
     
     Client(int p, String h, int myPeerID, Map<Integer, Peer.PeerInfo> peerInfo, int peerID) {
 
@@ -32,6 +34,7 @@ public class Client extends Thread{
         this.peerInfo = peerInfo;
         logger = new Logger(myPeerID);
         running.set(true);
+        currChoked = true;
     }
     
     public void interrupt(){
@@ -103,8 +106,163 @@ public class Client extends Thread{
 
         while (running.get()){
 
-            
+            if(peerInfo.get(peerID).choked){
+
+                if(currChoked == false){
+                    sendChoke();
+
+                }
+
+                readBuffer();
+                sendNewHave();
+
+            }
+            else{
+
+                if(currChoked == true){
+                    sendUnchoke();
+                }
+
+                readBuffer();
+                sendNewHave();
+                
+            }
         }
+    }
+
+    void sendNewHave(){
+
+        while(!peerInfo.get(peerID).freshPieces.empty()){
+
+            int piece = peerInfo.get(peerID).freshPieces.pop();
+
+            Message m = new Message(4);
+            m.setHavePayload(piece);
+            byte[] mOut = m.writeMessage();
+
+            sendMessage(mOut);
+
+        }
+
+        return;
+    }
+
+    void readBuffer(){
+
+        try{
+            if (in.available() >= 5){
+
+                //read 4 bytes for message length
+                int messageLength = in.readInt();
+
+                //read 1 byte for type
+                int messageType = in.readUnsignedByte();
+
+                //if message length > 0, read message payload
+                byte[] messagePayload = null;
+
+                if(messageLength > 0){
+
+                    messagePayload = new byte[messageLength];
+                    in.readFully(messagePayload, 0, messageLength);
+                }
+
+                switch(messageType){
+
+                    case 2:
+                        processInterested();
+                        logger.writeLog("Peer [" + myPeerID + "] received the 'interested' message from [" + peerID + "]");
+                        break;
+                    case 3:
+                        processUninterested();
+                        logger.writeLog("Peer [" + myPeerID + "] received the 'not interested' message from [" + peerID + "]");
+                        break;
+                    case 6:
+                        processRequest(messagePayload);
+                        break;
+                }
+                
+            }
+        }
+        catch(Exception e){
+
+            StringWriter sw = new StringWriter();
+            PrintWriter pw = new PrintWriter(sw);
+            e.printStackTrace(pw);
+            String sStackTrace = sw.toString();
+            logger.writeLog("[ERROR] Peer [" + myPeerID + "] in Client read loop with connection to peer [" + peerID + "] " + sStackTrace);
+            e.printStackTrace();
+        }
+
+        return;
+    }
+
+    void processInterested(){
+
+        peerInfo.get(peerID).interested = true;
+        return;
+    }
+
+    void processUninterested(){
+
+        peerInfo.get(peerID).interested = false;
+        return;
+    }
+
+    void processRequest(byte[] b){
+
+        int pieceRequested = Message.readRequestPayload(b);
+
+        logger.writeLog("Peer [" + myPeerID + "] received the 'request' message from [" + peerID + "] for peice [" + pieceRequested + "]");
+
+        sendPiece(pieceRequested);
+        return;
+    }
+
+    void sendPiece(int pieceRequested){
+
+        int size = peerInfo.get(myPeerID).pieceSize;
+
+        byte[] fileCopy = Arrays.copyOf(peerInfo.get(myPeerID).fileBytes, peerInfo.get(myPeerID).fileBytes.length);
+
+        int pieceStartIndex = pieceRequested * size;
+        int pieceEndIndex = pieceStartIndex + size;
+
+        byte[] b = new byte[size];
+        int count = 0;
+
+        for (int i = pieceStartIndex; i < pieceEndIndex; i++){
+            b[count] = fileCopy[i];
+            count++;
+        }
+
+        Message m = new Message(7);
+        m.setPiecePayload(b);
+        byte[] mOut = m.writeMessage();
+
+        sendMessage(mOut);
+
+        return;
+    }
+
+    void sendChoke(){
+
+        Message m = new Message(0);
+        byte[] mOut = m.writeMessage();
+        sendMessage(mOut);
+        currChoked = true;
+
+        return;
+    }
+
+    void sendUnchoke(){
+
+        Message m = new Message(1);
+        byte[] mOut = m.writeMessage();
+        sendMessage(mOut);
+        currChoked = false;
+
+        return;
     }
 
     void connectToServer(){
@@ -185,7 +343,7 @@ public class Client extends Thread{
         try{
 
             //wait for 4 bytes of data to be in input stream
-            while (in.available() < 4){
+            while (in.available() < 5){
 
             }
 
@@ -222,4 +380,5 @@ public class Client extends Thread{
             ioException.printStackTrace();
         }
     }
+    
 }

@@ -9,6 +9,7 @@
 
 import java.io.*;
 import java.util.*;
+import java.util.concurrent.TimeUnit;
 
 /*
  * The StartRemotePeers class begins remote peer processes. 
@@ -71,6 +72,8 @@ public class KillRemotePeers {
 				
 				// If your program is C/C++, use this line instead of the above line. 
 				//Runtime.getRuntime().exec("ssh " + pInfo.peerAddress + " cd " + path + "; ./peerProcess " + pInfo.peerId);
+
+				TimeUnit.SECONDS.sleep(2);
 			}		
 			System.out.println("killing all remote peers has done." );
 

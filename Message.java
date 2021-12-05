@@ -80,7 +80,6 @@ public class Message {
         
         byte[] message = new byte[messageLength + 5];
         messageLengthBits = ByteBuffer.allocate(4).putInt(messageLength).array();
-        byte[] payloadBytes = bBufPayload.wrap(payloadBits).array();
         ByteBuffer bb = ByteBuffer.allocate(4); 
         bb.putInt(messageTypeNumber); 
         byte messageTypeBit = bb.array()[3];
@@ -95,8 +94,8 @@ public class Message {
         message[count] = messageTypeBit;
         count++;
 
-        for(int i = 0; i < payloadBytes.length; i++){
-            message[count] = payloadBytes[i];
+        for(int i = 0; i < payloadBits.length; i++){
+            message[count] = payloadBits[i];
             count++;
         }
 
